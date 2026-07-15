@@ -33,12 +33,10 @@ import {
   canPlayChapter,
   currentChapter,
   dismissLesson,
-  formatCountdown,
   isAudienceCured,
   loadMeta,
   markIntroSeen,
   mcDisplayName,
-  msUntilEnergyRefresh,
   recordQuizResult,
   refreshEnergy,
   resetMeta,
@@ -428,18 +426,19 @@ function renderIntro(): HTMLElement {
 function renderHub(): HTMLElement {
   const main = el('main', 'hub')
 
-  const energyBar = el('div', 'get-energy-bar')
-  const getEnergy = el('button', 'btn secondary', '⚡ Get energy')
-  getEnergy.type = 'button'
-  getEnergy.addEventListener('click', () => startTraining())
-  energyBar.append(getEnergy)
-  const energyHint = el('span', 'energy-note', '')
-  energyHint.style.margin = '0'
-  energyHint.textContent =
-    meta.energy < ENERGY_MAX
-      ? `Refill in ${formatCountdown(msUntilEnergyRefresh(meta))}`
-      : `${meta.energy} ⚡ ready`
-  energyBar.append(energyHint)
+  const energyBar = el('div', 'hub-status-bar')
+  energyBar.append(el('span', 'energy-note', `⚡ ${meta.energy} energy`))
+  if (meta.energy < 1) {
+    const getEnergy = el('button', 'btn primary tiny', 'Get energy')
+    getEnergy.type = 'button'
+    getEnergy.addEventListener('click', () => startTraining())
+    energyBar.append(getEnergy)
+  } else if (meta.energy < ENERGY_MAX) {
+    const getEnergy = el('button', 'btn ghost tiny', 'Quiz for +1 ⚡')
+    getEnergy.type = 'button'
+    getEnergy.addEventListener('click', () => startTraining())
+    energyBar.append(getEnergy)
+  }
   main.append(energyBar)
 
   const hero = el('section', `theater-banner ${hubCardFace === 'stats' ? 'face-stats' : 'face-mc'}`)
@@ -491,7 +490,7 @@ function renderHub(): HTMLElement {
   hero.append(art, copy)
   main.append(hero)
 
-  if (meta.lastReflection) {
+  if (meta.lastReflection && isUsefulCoachNote(meta.lastReflection)) {
     const note = el('aside', 'coach-note')
     note.innerHTML = `<strong>Coach</strong><p>${escapeHtml(meta.lastReflection.strength)}</p><p class="tip-line">${escapeHtml(meta.lastReflection.tip)}</p>`
     main.append(note)
@@ -504,8 +503,10 @@ function renderHub(): HTMLElement {
   playCard.append(el('p', '', ch.subtitle))
 
   const gate = canPlayChapter(meta, ch.id)
+  const needsSkills = !gate.ok && (gate.reason || '').startsWith('Need skill')
+  const needsEnergy = !gate.ok && (gate.reason || '').toLowerCase().includes('energy')
+
   if (!gate.ok) {
-    const needsSkills = (gate.reason || '').startsWith('Need skill')
     playCard.append(
       el('p', 'warn', needsSkills ? 'Upgrade skills to continue' : gate.reason || 'Locked'),
     )
@@ -514,15 +515,15 @@ function renderHub(): HTMLElement {
     }
     const row = el('div', 'hub-actions')
     if (needsSkills) {
-      const toSkills = el('button', 'btn primary', 'Open skill tree')
+      const toSkills = el('button', 'btn primary big', 'Open skill tree')
       toSkills.type = 'button'
       toSkills.addEventListener('click', () => {
         screen = 'skills'
         render()
       })
       row.append(toSkills)
-    } else if ((gate.reason || '').includes('energy')) {
-      const train = el('button', 'btn primary', 'Get energy')
+    } else if (needsEnergy) {
+      const train = el('button', 'btn primary big', 'Get energy')
       train.type = 'button'
       train.addEventListener('click', () => startTraining())
       row.append(train)
@@ -542,7 +543,11 @@ function renderHub(): HTMLElement {
   main.append(playCard)
 
   const nav = el('div', 'hub-actions hub-nav-compact')
-  const sk = el('button', 'btn secondary tiny', 'Skills')
+  const sk = el(
+    'button',
+    needsSkills ? 'btn primary tiny' : 'btn secondary tiny',
+    'Skill tree',
+  )
   sk.type = 'button'
   sk.addEventListener('click', () => {
     screen = 'skills'
@@ -1369,6 +1374,22 @@ function statCard(label: string, value: string): HTMLElement {
   c.append(el('p', 'muted', label))
   c.append(el('p', 'stat-value', value))
   return c
+}
+
+function isUsefulCoachNote(r: { strength: string; tip: string }): boolean {
+  const genericStrength = new Set([
+    'Clear line for this moment',
+    'You kept speaking on stage.',
+    'You learned something from the miss.',
+  ])
+  const genericTip = new Set([
+    'Replay and try a different face or gesture on the same line.',
+    'Spend a skill point, then retry this chapter.',
+  ])
+  const strengthOk = !!r.strength && !genericStrength.has(r.strength)
+  const tipOk = !!r.tip && !genericTip.has(r.tip)
+  // Only take hub space when there is a real tip or a specific strength
+  return tipOk || strengthOk
 }
 
 function escapeHtml(s: string): string {

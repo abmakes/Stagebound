@@ -857,6 +857,24 @@ body {
   width: 100%;
 }
 
+.hub-status-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+}
+
+.hub-status-bar .btn.tiny {
+  margin-top: 0;
+  flex: 0 0 auto;
+}
+
+.hub-status-bar .energy-note {
+  max-width: none;
+  flex: 1;
+}
+
 .get-energy-bar {
   display: flex;
   gap: 0.55rem;
@@ -865,7 +883,7 @@ body {
 }
 
 .get-energy-bar .btn {
-  flex: 1;
+  flex: 0 0 auto;
 }
 
 .energy-note {

@@ -125,11 +125,12 @@ function playerSrc(avatar: PlayerAvatar): string {
 function portraitMood(who: AudienceWho, mood: AudienceMood): AudienceMood {
   const cured = isAudienceCured(meta.audienceCure, who)
   if (!cured) {
-    if (mood === 'cheer' || mood === 'happy') return 'engaged'
-    if (mood === 'afflicted' || mood === 'bored' || mood === 'confused' || mood === 'engaged') return mood
+    // Boredom really has them until you cure their chapter.
+    // Only high crowd energy nudges them from afflicted -> bored -> confused.
+    if (mood === 'cheer' || mood === 'happy') return 'confused'
+    if (mood === 'engaged') return 'bored'
     return 'afflicted'
   }
-  // Cured: floor is bored (never afflicted)
   if (mood === 'afflicted') return 'bored'
   return mood
 }

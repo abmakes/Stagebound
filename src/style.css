@@ -1012,12 +1012,20 @@ body {
 .theater {
   position: relative;
   background: linear-gradient(180deg, #245760 0%, #1a3f46 55%, #132f34 100%);
-  border-radius: 20px;
+  border-radius: 0;
   padding: 0.85rem 0.75rem 1rem;
   overflow-x: clip;
   overflow-y: visible;
-  box-shadow: 0 16px 36px var(--shadow);
+  box-shadow: none;
   margin-bottom: 0.75rem;
+}
+
+.run-screen .theater.theater-bleed {
+  width: 100vw;
+  max-width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  border-radius: 0;
 }
 
 .curtain.left,
@@ -1086,6 +1094,11 @@ body {
 .aud-face.mood-confused {
   filter: saturate(0.85) brightness(0.95);
   transform: translateY(2px);
+}
+
+.aud-face.mood-afflicted {
+  filter: saturate(0.7) brightness(0.88);
+  transform: translateY(3px);
 }
 
 @keyframes face-in {
@@ -1162,6 +1175,7 @@ body {
 .player-sprite {
   width: min(200px, 58%);
   display: block;
+  border-radius: 16px;
   filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.4));
   animation: player-bob 3s ease-in-out infinite;
 }
@@ -1372,7 +1386,9 @@ body {
     border-radius: 14px;
   }
 
-  .theater {
+  .run-screen .theater.theater-bleed,
+  .theater.theater-bleed {
+    border-radius: 0;
     padding: 0.65rem 0.45rem 0.85rem;
     overflow: visible;
   }

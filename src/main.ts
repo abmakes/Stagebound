@@ -1,5 +1,7 @@
 import './style.css'
 import type {
+  AudienceMood,
+  AudienceWho,
   DeliverySlot,
   EmotionId,
   MetaState,
@@ -32,6 +34,7 @@ import {
   currentChapter,
   dismissLesson,
   formatCountdown,
+  isAudienceCured,
   loadMeta,
   markIntroSeen,
   mcDisplayName,
@@ -45,6 +48,7 @@ import {
   spendEnergy,
 } from './game/meta'
 import type { PlayerAvatar } from './data/types'
+import { expectedFor } from './game/scoring'
 import {
   advanceAfterFeedback,
   audienceMood,
@@ -60,25 +64,22 @@ import {
 
 type Screen = 'intro' | 'hub' | 'lesson' | 'skills' | 'train' | 'codex' | 'run' | 'result' | 'board' | 'score'
 
-type AudienceWho = 'oldman' | 'woman' | 'girl'
-type AudienceMoodKey = 'cheer' | 'happy' | 'engaged' | 'bored' | 'confused'
-
 const AUDIENCE_ORDER: AudienceWho[] = ['oldman', 'woman', 'girl']
 
 const INTRO_PANELS = [
   {
     title: 'You are an MC',
-    body: 'Ha Long Bay needs confident voices. Being an MC — Master of Ceremonies — is a real career path in Vietnam. You practice delivery so you can guide a stage with clear words, face, and body.',
+    body: 'Ha Long is suffering from boredom. Only the best MC can bring life back to this crowd before we lose them for good. Being an MC — Master of Ceremonies — is a real career path you can train for.',
     visual: 'ranger' as const,
   },
   {
-    title: 'Your crowd is watching',
-    body: 'An old man, a lady, and a young girl hang on every word — or look bored if your delivery does not match. Keep their attention. That is your Audience meter.',
+    title: 'The crowd is fading',
+    body: 'An old man, a lady, and a young girl start drained by boredom. Match your delivery and lift them — bored, then curious, then engaged. Cheer unlocks as you cure each person, chapter by chapter.',
     visual: 'crowd' as const,
   },
   {
     title: 'Choose your path · Manage energy',
-    body: 'Unlock skills on a branching tree — Tone or Gestures first? Wrong path can leave a stage too hard. You get 3 energy every 8 hours. Train with class quizzes for extra energy.',
+    body: 'Unlock skills on a branching tree — a few tools at a time. You get 3 energy every 8 hours. Train with class quizzes for extra energy.',
     visual: 'progress' as const,
   },
 ]
@@ -96,6 +97,7 @@ const ART = {
       engaged: '/art/aud-oldman-engaged.png',
       bored: '/art/aud-oldman-bored.png',
       confused: '/art/aud-oldman-confused.png',
+      afflicted: '/art/aud-oldman-afflicted.png',
     },
     woman: {
       cheer: '/art/aud-woman-cheer.png',
@@ -103,6 +105,7 @@ const ART = {
       engaged: '/art/aud-woman-engaged.png',
       bored: '/art/aud-woman-bored.png',
       confused: '/art/aud-woman-confused.png',
+      afflicted: '/art/aud-woman-afflicted.png',
     },
     girl: {
       cheer: '/art/aud-girl-cheer.png',
@@ -110,6 +113,7 @@ const ART = {
       engaged: '/art/aud-girl-engaged.png',
       bored: '/art/aud-girl-bored.png',
       confused: '/art/aud-girl-confused.png',
+      afflicted: '/art/aud-girl-afflicted.png',
     },
   },
 } as const
@@ -118,11 +122,24 @@ function playerSrc(avatar: PlayerAvatar): string {
   return ART.player[avatar]
 }
 
-function audienceSrc(who: AudienceWho, mood: AudienceMoodKey): string {
+/** Clamp shared mood per person: uncured cannot cheer; cured never show afflicted. */
+function portraitMood(who: AudienceWho, mood: AudienceMood): AudienceMood {
+  const cured = isAudienceCured(meta.audienceCure, who)
+  if (!cured) {
+    if (mood === 'cheer' || mood === 'happy') return 'engaged'
+    if (mood === 'afflicted' || mood === 'bored' || mood === 'confused' || mood === 'engaged') return mood
+    return 'afflicted'
+  }
+  // Cured: floor is bored (never afflicted)
+  if (mood === 'afflicted') return 'bored'
+  return mood
+}
+
+function audienceSrc(who: AudienceWho, mood: AudienceMood): string {
   return ART.audience[who][mood]
 }
 
-function crowdCaption(mood: AudienceMoodKey): string {
+function crowdCaption(mood: AudienceMood): string {
   switch (mood) {
     case 'cheer':
       return 'The crowd loves this!'
@@ -134,6 +151,8 @@ function crowdCaption(mood: AudienceMoodKey): string {
       return 'They look bored…'
     case 'confused':
       return 'They look confused…'
+    case 'afflicted':
+      return 'Boredom has them…'
   }
 }
 
@@ -331,7 +350,7 @@ function renderIntro(): HTMLElement {
   } else if (panel.visual === 'crowd') {
     art.append(el('p', 'crowd-label', 'Will they listen?'))
     const row = el('div', 'audience-row intro-crowd')
-    const moods: AudienceMoodKey[] = ['bored', 'confused', 'engaged']
+    const moods: AudienceMood[] = ['afflicted', 'bored', 'confused']
     AUDIENCE_ORDER.forEach((who, i) => {
       const wrap = el('div', `aud-slot slide-up delay-${i}`)
       const img = el('img', 'aud-face') as HTMLImageElement
@@ -436,9 +455,9 @@ function renderHub(): HTMLElement {
 
   const copy = el('div', 'hero-copy')
   if (hubCardFace === 'mc') {
-    copy.append(el('p', 'eyebrow', 'Ha Long Bay Tour'))
+    copy.append(el('p', 'eyebrow', 'Ha Long Tour'))
     copy.append(el('h1', '', mcDisplayName(meta)))
-    copy.append(el('p', 'hero-blurb', 'Train delivery. Unlock skills. Guide the stage.'))
+    copy.append(el('p', 'hero-blurb', 'Ha Long is suffering from boredom. Bring the crowd back to life.'))
   } else {
     copy.append(el('p', 'eyebrow', 'Voice stats'))
     copy.append(el('h1', '', mcDisplayName(meta)))
@@ -913,11 +932,11 @@ function renderRun(): HTMLElement {
   const main = el('main', 'run-screen')
 
   // Stage theater
-  const stage = el('section', 'theater')
+  const stage = el('section', 'theater theater-bleed')
   stage.append(el('div', 'curtain left', ''))
   stage.append(el('div', 'curtain right', ''))
 
-  const crowdLabel = el('p', 'crowd-label', crowdCaption(mood as AudienceMoodKey))
+  const crowdLabel = el('p', 'crowd-label', crowdCaption(mood))
   stage.append(crowdLabel)
 
   const audienceRow = el('div', 'audience-row')
@@ -927,10 +946,11 @@ function renderRun(): HTMLElement {
     girl: 'Young girl',
   }
   for (const who of AUDIENCE_ORDER) {
-    const wrap = el('div', `aud-slot mood-${mood}`)
-    const img = el('img', `aud-face mood-${mood}`) as HTMLImageElement
-    img.src = audienceSrc(who, mood as AudienceMoodKey)
-    img.alt = `${labels[who]} · ${mood}`
+    const faceMood = portraitMood(who, mood)
+    const wrap = el('div', `aud-slot mood-${faceMood}`)
+    const img = el('img', `aud-face mood-${faceMood}`) as HTMLImageElement
+    img.src = audienceSrc(who, faceMood)
+    img.alt = `${labels[who]} · ${faceMood}`
     wrap.append(img)
     audienceRow.append(wrap)
   }
@@ -1094,26 +1114,63 @@ function renderSlotPills(slot: DeliverySlot): HTMLElement {
   return wrap
 }
 
+function pickCappedOptions(
+  all: { id: string; label: string }[],
+  correctId: string | undefined,
+  max = 5,
+): { id: string; label: string }[] {
+  if (all.length <= max) return all
+  const correct = all.find((o) => o.id === correctId)
+  const others = all.filter((o) => o.id !== correctId)
+  // Stable-ish shuffle
+  for (let i = others.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[others[i], others[j]] = [others[j], others[i]]
+  }
+  const pick = others.slice(0, max - (correct ? 1 : 0))
+  const result = correct ? [correct, ...pick] : pick.slice(0, max)
+  // Shuffle final order so correct is not always first
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[result[i], result[j]] = [result[j], result[i]]
+  }
+  return result
+}
+
 function optionsForSlot(slot: DeliverySlot): { id: string; label: string }[] {
+  let all: { id: string; label: string }[] = []
   switch (slot) {
     case 'emotion':
-      return (Object.keys(EMOTION_LABELS) as EmotionId[]).map((id) => ({
+      all = (Object.keys(EMOTION_LABELS) as EmotionId[]).map((id) => ({
         id,
         label: EMOTION_LABELS[id],
       }))
+      break
     case 'tone':
-      return (Object.keys(TONE_LABELS) as ToneId[]).map((id) => ({ id, label: TONE_LABELS[id] }))
+      all = (Object.keys(TONE_LABELS) as ToneId[]).map((id) => ({ id, label: TONE_LABELS[id] }))
+      break
     case 'gesture':
-      return unlockedGestures(meta.unlockedSkills).map((id) => ({ id, label: GESTURE_LABELS[id] }))
+      all = unlockedGestures(meta.unlockedSkills).map((id) => ({ id, label: GESTURE_LABELS[id] }))
+      break
     case 'stance':
-      return unlockedStances(meta.unlockedSkills).map((id) => ({ id, label: STANCE_LABELS[id] }))
+      all = unlockedStances(meta.unlockedSkills).map((id) => ({ id, label: STANCE_LABELS[id] }))
+      break
     case 'volume':
-      return (Object.keys(VOLUME_LABELS) as VolumeId[]).map((id) => ({ id, label: VOLUME_LABELS[id] }))
+      all = (Object.keys(VOLUME_LABELS) as VolumeId[]).map((id) => ({ id, label: VOLUME_LABELS[id] }))
+      break
     case 'pause':
-      return (Object.keys(PAUSE_LABELS) as PauseId[]).map((id) => ({ id, label: PAUSE_LABELS[id] }))
+      all = (Object.keys(PAUSE_LABELS) as PauseId[]).map((id) => ({ id, label: PAUSE_LABELS[id] }))
+      break
     default:
       return []
   }
+
+  let correctId: string | undefined
+  if (run) {
+    const exp = expectedFor(currentTurn(run))
+    correctId = exp[slot] as string | undefined
+  }
+  return pickCappedOptions(all, correctId, 5)
 }
 
 function renderResult(): HTMLElement {

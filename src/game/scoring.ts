@@ -2,9 +2,11 @@ import type {
   AudienceMood,
   DeliveryChoice,
   DeliverySlot,
+  GestureId,
   RubricStat,
   SentenceOption,
   SkillId,
+  StanceId,
   TurnChallenge,
 } from '../data/types'
 import { EMOTION_BY_TURN } from '../data/emotions'
@@ -18,6 +20,7 @@ import {
   STANCE_LABELS,
   RUBRIC_LABELS,
 } from '../data/codex'
+import { isGestureUnlocked, isStanceUnlocked } from '../data/unlockOptions'
 
 export interface TurnScore {
   ok: boolean
@@ -40,15 +43,17 @@ function stressMatches(chosen: string | undefined, good: string[] | undefined): 
   return good.some((g) => normWord(g) === c)
 }
 
-function expectedFor(turn: TurnChallenge): DeliveryChoice {
+/** Fill emotion from table; default missing stance to balanced (never “nothing”). */
+export function expectedFor(turn: TurnChallenge): DeliveryChoice {
   return {
     ...turn.expected,
     emotion: turn.expected.emotion ?? EMOTION_BY_TURN[turn.id],
+    stance: turn.expected.stance ?? 'balanced',
   }
 }
 
 function labelFor(slot: DeliverySlot, value: string | undefined): string {
-  if (!value) return 'nothing'
+  if (!value) return 'a clearer choice'
   switch (slot) {
     case 'emotion':
       return EMOTION_LABELS[value as keyof typeof EMOTION_LABELS] || value
@@ -79,6 +84,27 @@ function contrastTip(
   const got = labelFor(slot, chosenVal)
   const shortMoment = moment.replace(/^Body — |^Opening — |^Closing — /i, '').trim() || moment
   return `For ${shortMoment}, use ${want} — not ${got}.`
+}
+
+function lockedUnlockTip(slot: DeliverySlot): string {
+  if (slot === 'gesture') {
+    return 'This move needs More Gestures. Spend skill points to unlock it, then try the speech again.'
+  }
+  if (slot === 'stance') {
+    return 'This stance needs More Stance. Spend skill points to unlock it, then try the speech again.'
+  }
+  return 'Spend skill points to unlock this skill, then try the speech again.'
+}
+
+function expectedLocked(
+  key: DeliverySlot,
+  exp: string | undefined,
+  unlockedSkills: SkillId[],
+): boolean {
+  if (!exp) return false
+  if (key === 'gesture') return !isGestureUnlocked(exp as GestureId, unlockedSkills)
+  if (key === 'stance') return !isStanceUnlocked(exp as StanceId, unlockedSkills)
+  return false
 }
 
 /** Only score slots the chapter activates AND the player has unlocked (word taps always if in active). */
@@ -135,9 +161,13 @@ export function scoreTurn(
     if (got === exp) {
       points += 1
       strengths.push(goodMsg)
-    } else {
-      tips.push(contrastTip(turn.moment, key, exp, got))
+      return
     }
+    if (expectedLocked(key, exp, unlockedSkills)) {
+      tips.push(lockedUnlockTip(key))
+      return
+    }
+    tips.push(contrastTip(turn.moment, key, exp, got))
   }
 
   const checkWord = (
@@ -153,7 +183,7 @@ export function scoreTurn(
       strengths.push(goodMsg)
     } else {
       const want = list[0] || fallback || 'the key word'
-      const got = delivery[key] || 'nothing'
+      const got = delivery[key] || 'a different word'
       tips.push(`For ${turn.moment}, stress “${want}” — not “${got}”.`)
     }
   }
@@ -165,18 +195,8 @@ export function scoreTurn(
   checkChoice('pause', 'Good pause')
   checkChoice('eyes', 'Eyes on the audience')
   checkChoice('stance', 'Strong stance')
-  checkWord(
-    'stressWord',
-    'You stressed a key word',
-    sentence.goodStress,
-    expected.stressWord,
-  )
-  checkWord(
-    'sayClearWord',
-    'You marked a clear word',
-    sentence.clearWords,
-    expected.sayClearWord,
-  )
+  checkWord('stressWord', 'You stressed a key word', sentence.goodStress, expected.stressWord)
+  checkWord('sayClearWord', 'You marked a clear word', sentence.clearWords, expected.sayClearWord)
 
   if (slots.includes('volume') && delivery.volume === 'shout' && expected.volume !== 'shout') {
     tips.push('Shouting is not the same as a strong, clear voice.')
@@ -185,10 +205,10 @@ export function scoreTurn(
   const ratio = maxPoints ? points / maxPoints : 0
   const ok = ratio >= 0.6 && sentence.isCorrect
   let audienceDelta = 0
-  if (ok) audienceDelta = ratio >= 0.85 ? 10 : 5
-  else if (sentence.isCorrect) audienceDelta = -8
-  else audienceDelta = -14
-  if (turn.beat === 'boss' && !ok) audienceDelta -= 5
+  if (ok) audienceDelta = ratio >= 0.85 ? 12 : 8
+  else if (sentence.isCorrect) audienceDelta = -6
+  else audienceDelta = -10
+  if (turn.beat === 'boss' && !ok) audienceDelta -= 4
 
   return {
     ok,
@@ -201,12 +221,17 @@ export function scoreTurn(
   }
 }
 
+/**
+ * Shared meter → mood bands.
+ * Afflicted is the floor when the crowd is still sick with boredom.
+ */
 export function moodFromAudience(audience: number, lastOk: boolean | null): AudienceMood {
-  if (audience >= 85) return 'cheer'
-  if (audience >= 65) return 'happy'
-  if (audience >= 40) return lastOk === false ? 'confused' : 'engaged'
-  if (audience >= 20) return 'bored'
-  return 'confused'
+  if (audience >= 88) return 'cheer'
+  if (audience >= 70) return 'happy'
+  if (audience >= 48) return lastOk === false ? 'confused' : 'engaged'
+  if (audience >= 28) return 'bored'
+  if (audience >= 12) return lastOk === false ? 'confused' : 'bored'
+  return 'afflicted'
 }
 
 export function reflectionFromRun(

@@ -36,7 +36,15 @@ export type RubricStat =
   | 'unintentionalMovement'
   | 'purposefulMovement'
 
-export type AudienceMood = 'cheer' | 'happy' | 'engaged' | 'bored' | 'confused'
+export type AudienceMood = 'cheer' | 'happy' | 'engaged' | 'bored' | 'confused' | 'afflicted'
+
+export type AudienceWho = 'oldman' | 'woman' | 'girl'
+
+export interface AudienceCure {
+  girl: boolean
+  oldman: boolean
+  woman: boolean
+}
 
 export interface DeliveryChoice {
   emotion?: EmotionId
@@ -159,6 +167,8 @@ export interface MetaState {
   finalsMatchCount: number
   bestStageboundScore: number
   gameComplete: boolean
+  /** Who has been cured of boredom (cheer unlocked; no longer start afflicted) */
+  audienceCure: AudienceCure
 }
 
 export interface RunResult {

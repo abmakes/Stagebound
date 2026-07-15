@@ -1,4 +1,13 @@
-import type { MetaState, PackId, PlayerAvatar, RubricStat, RunResult, SkillId } from '../data/types'
+import type {
+  AudienceCure,
+  AudienceWho,
+  MetaState,
+  PackId,
+  PlayerAvatar,
+  RubricStat,
+  RunResult,
+  SkillId,
+} from '../data/types'
 import { ALL_CHAPTERS, CHAPTERS, getChapter, SKILL_LABELS } from '../data/curriculum'
 import { isFinalChapter, FINALS } from '../data/finals'
 import { PACKS } from '../data'
@@ -33,6 +42,25 @@ const DEFAULT_RANKS: Record<SkillId, number> = {
   stress: 0,
 }
 
+const DEFAULT_CURE: AudienceCure = { girl: false, oldman: false, woman: false }
+
+/** ch1 → girl, ch2 → oldman, ch3 → woman (whole town) */
+export function cureFromCleared(chaptersCleared: string[]): AudienceCure {
+  return {
+    girl: chaptersCleared.includes('ch1-first-words'),
+    oldman: chaptersCleared.includes('ch2-find-voice'),
+    woman: chaptersCleared.includes('ch3-hands'),
+  }
+}
+
+export function townFullyCured(cure: AudienceCure): boolean {
+  return cure.girl && cure.oldman && cure.woman
+}
+
+export function isAudienceCured(cure: AudienceCure, who: AudienceWho): boolean {
+  return !!cure[who]
+}
+
 export function defaultMeta(): MetaState {
   return {
     version: 3,
@@ -65,6 +93,7 @@ export function defaultMeta(): MetaState {
     finalsMatchCount: 0,
     bestStageboundScore: 0,
     gameComplete: false,
+    audienceCure: { ...DEFAULT_CURE },
   }
 }
 
@@ -180,8 +209,10 @@ export function loadMeta(): MetaState {
       finalsMatchCount: parsed.finalsMatchCount || 0,
       bestStageboundScore: parsed.bestStageboundScore || 0,
       gameComplete: !!parsed.gameComplete,
+      audienceCure: cureFromCleared(parsed.chaptersCleared || []),
     }
     m = migrateSkillTiers(m)
+    m.audienceCure = cureFromCleared(m.chaptersCleared)
     m = refreshEnergy(m)
     saveMeta(m)
     return m
@@ -232,6 +263,16 @@ export function applyRunResult(meta: MetaState, result: RunResult): MetaState {
     if (!next.chaptersCleared.includes(ch.id)) {
       next.chaptersCleared.push(ch.id)
       result.newUnlocks.push(`Chapter cleared: ${ch.title}`)
+    }
+    next.audienceCure = cureFromCleared(next.chaptersCleared)
+    if (ch.id === 'ch1-first-words') {
+      result.newUnlocks.push('The young girl can cheer — boredom is lifting!')
+    }
+    if (ch.id === 'ch2-find-voice') {
+      result.newUnlocks.push('The old man can cheer again!')
+    }
+    if (ch.id === 'ch3-hands') {
+      result.newUnlocks.push('The whole town is cured of boredom!')
     }
     const idx = ALL_CHAPTERS.findIndex((c) => c.id === ch.id)
     if (idx >= next.chapterIndex) {

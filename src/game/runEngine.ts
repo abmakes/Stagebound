@@ -1,6 +1,7 @@
 import type { ChapterDef, DeliveryChoice, DeliverySlot, MetaState, RunResult } from '../data/types'
 import { getPack } from '../data'
 import { getChapter } from '../data/curriculum'
+import { townFullyCured } from './meta'
 import { moodFromAudience, reflectionFromRun, scoreTurn } from './scoring'
 
 export type RunPhase = 'pick' | 'feedback' | 'finished'
@@ -67,13 +68,13 @@ function buildPickQueue(activeSlots: DeliverySlot[], unlocked: MetaState['unlock
 
 export function startChapterRun(meta: MetaState, chapterId: string): RunState {
   const ch = getChapter(chapterId)
-  let audience = 70
-  // Pressure: missing recommended skill → bored crowd from the start
+  // Start afflicted until the whole town is cured; then start at bored band
+  let audience = townFullyCured(meta.audienceCure) ? 30 : 8
   if (ch.pressureSkill && !meta.unlockedSkills.includes(ch.pressureSkill)) {
-    audience = 42
+    audience = Math.min(audience, 6)
   }
-  // Rank bonuses
-  audience += Math.min(12, meta.unlockedSkills.length * 2)
+  // Small bonus for unlocked skills (capped so early runs still look afflicted)
+  audience += Math.min(6, meta.unlockedSkills.length)
 
   const queue = buildPickQueue(ch.activeSlots, meta.unlockedSkills)
   return {

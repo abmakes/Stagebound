@@ -210,14 +210,30 @@ export function submitCurrent(state: RunState, meta: MetaState): RunState {
     ch.activeSlots,
     meta.unlockedSkills,
   )
+
+  // Scale crowd gains so a strong run can climb from afflicted → cheer within this speech.
+  const turnsLeft = Math.max(1, state.turnIds.length - state.turnIndex)
+  const cheerTarget = 92
+  let audienceDelta = feedback.audienceDelta
+  if (feedback.ok) {
+    const need = Math.max(0, cheerTarget - state.audience)
+    const paced = Math.ceil(need / turnsLeft)
+    const ratio = feedback.maxPoints ? feedback.points / feedback.maxPoints : 0
+    if (ratio >= 0.85) {
+      audienceDelta = Math.max(audienceDelta, paced + 2)
+    } else {
+      audienceDelta = Math.max(audienceDelta, Math.max(10, Math.floor(paced * 0.7)))
+    }
+  }
+
   return {
     ...state,
     score: state.score + feedback.points,
     maxScore: state.maxScore + feedback.maxPoints,
-    audience: Math.max(0, Math.min(AUDIENCE_MAX, state.audience + feedback.audienceDelta)),
+    audience: Math.max(0, Math.min(AUDIENCE_MAX, state.audience + audienceDelta)),
     matches: state.matches + (feedback.ok ? 1 : 0),
     misses: state.misses + (feedback.ok ? 0 : 1),
-    lastFeedback: feedback,
+    lastFeedback: { ...feedback, audienceDelta },
     lastOk: feedback.ok,
     phase: 'feedback',
     allStrengths: [...state.allStrengths, ...feedback.strengths],

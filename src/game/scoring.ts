@@ -204,11 +204,12 @@ export function scoreTurn(
 
   const ratio = maxPoints ? points / maxPoints : 0
   const ok = ratio >= 0.6 && sentence.isCorrect
+  // Base deltas; runEngine scales ups so short speeches can still reach cheer from afflicted.
   let audienceDelta = 0
-  if (ok) audienceDelta = ratio >= 0.85 ? 12 : 8
-  else if (sentence.isCorrect) audienceDelta = -6
-  else audienceDelta = -10
-  if (turn.beat === 'boss' && !ok) audienceDelta -= 4
+  if (ok) audienceDelta = ratio >= 0.85 ? 14 : 10
+  else if (sentence.isCorrect) audienceDelta = -5
+  else audienceDelta = -8
+  if (turn.beat === 'boss' && !ok) audienceDelta -= 3
 
   return {
     ok,

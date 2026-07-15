@@ -152,7 +152,50 @@ export function selectDelivery(
 export function goBackStep(state: RunState): RunState {
   const idx = state.pickQueue.indexOf(state.pickStep)
   if (idx <= 0) return state
-  return { ...state, pickStep: state.pickQueue[idx - 1] }
+  const prev = state.pickQueue[idx - 1]
+  if (prev === 'sentence') {
+    return {
+      ...state,
+      pickStep: 'sentence',
+      draft: { sentenceId: null, delivery: {} },
+      bubbleText: '…',
+    }
+  }
+  const delivery = { ...state.draft.delivery }
+  if (prev !== 'confirm') {
+    delete (delivery as Record<string, unknown>)[prev]
+  }
+  return {
+    ...state,
+    pickStep: prev,
+    draft: { ...state.draft, delivery },
+  }
+}
+
+/** Undo last scored beat so the player can change answers on this line. */
+export function retryCurrentTurn(state: RunState, meta: MetaState): RunState {
+  if (state.phase !== 'feedback' || !state.lastFeedback) return state
+  const fb = state.lastFeedback
+  const ch = getChapter(state.chapterId)
+  const queue = buildPickQueue(ch.activeSlots, meta.unlockedSkills)
+  return {
+    ...state,
+    score: Math.max(0, state.score - fb.points),
+    maxScore: Math.max(0, state.maxScore - fb.maxPoints),
+    audience: Math.max(0, Math.min(AUDIENCE_MAX, state.audience - fb.audienceDelta)),
+    matches: Math.max(0, state.matches - (fb.ok ? 1 : 0)),
+    misses: Math.max(0, state.misses - (fb.ok ? 0 : 1)),
+    allStrengths: state.allStrengths.slice(0, Math.max(0, state.allStrengths.length - fb.strengths.length)),
+    allTips: state.allTips.slice(0, Math.max(0, state.allTips.length - fb.tips.length)),
+    statsHit: state.statsHit.slice(0, Math.max(0, state.statsHit.length - fb.statsHit.length)),
+    lastFeedback: null,
+    lastOk: null,
+    phase: 'pick',
+    pickStep: queue[0],
+    pickQueue: queue,
+    draft: { sentenceId: null, delivery: {} },
+    bubbleText: '…',
+  }
 }
 
 export function submitCurrent(state: RunState, meta: MetaState): RunState {

@@ -113,6 +113,21 @@ body {
   min-height: 240px;
 }
 
+.intro-afflicted-group {
+  width: min(100%, 420px);
+  max-height: min(52vh, 320px);
+  object-fit: contain;
+  border-radius: 14px;
+  filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.45));
+}
+
+.pick-back {
+  align-self: flex-start;
+  margin-bottom: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.85rem;
+}
+
 .intro-player {
   width: min(200px, 55%);
   filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.4));

@@ -54,6 +54,7 @@ import {
   audienceMood,
   currentTurn,
   goBackStep,
+  retryCurrentTurn,
   selectDelivery,
   selectSentence,
   startChapterRun,
@@ -348,18 +349,11 @@ function renderIntro(): HTMLElement {
     wrap.append(el('div', 'speech-bubble at-feet pop-in', 'I can do this…'))
     art.append(wrap)
   } else if (panel.visual === 'crowd') {
-    art.append(el('p', 'crowd-label', 'Will they listen?'))
-    const row = el('div', 'audience-row intro-crowd')
-    const moods: AudienceMood[] = ['afflicted', 'bored', 'confused']
-    AUDIENCE_ORDER.forEach((who, i) => {
-      const wrap = el('div', `aud-slot slide-up delay-${i}`)
-      const img = el('img', 'aud-face') as HTMLImageElement
-      img.src = audienceSrc(who, moods[i])
-      img.alt = who
-      wrap.append(img)
-      row.append(wrap)
-    })
-    art.append(row)
+    art.append(el('p', 'crowd-label', 'Boredom has them…'))
+    const group = el('img', 'intro-afflicted-group float-in') as HTMLImageElement
+    group.src = '/art/afflicted_group.png'
+    group.alt = 'Ha Long crowd drained by boredom'
+    art.append(group)
   } else {
     const strip = el('div', 'intro-progress-strip')
     const steps = ['Face', 'Tone', 'Gesture', 'Stance']
@@ -989,10 +983,9 @@ function renderRun(): HTMLElement {
 
   const panel = el('section', 'choice-panel')
   if (run.phase === 'pick') {
-    panel.append(el('h2', 'step-title', stepTitle(run.pickStep, turn.prompt)))
-    panel.append(renderPickStep(run, turn))
-    if (run.pickStep !== 'sentence' && run.pickStep !== run.pickQueue[0]) {
-      const back = el('button', 'btn ghost', '← Back')
+    const stepIdx = run.pickQueue.indexOf(run.pickStep)
+    if (stepIdx > 0) {
+      const back = el('button', 'btn ghost pick-back', '← Back')
       back.type = 'button'
       back.addEventListener('click', () => {
         if (!run) return
@@ -1001,6 +994,8 @@ function renderRun(): HTMLElement {
       })
       panel.append(back)
     }
+    panel.append(el('h2', 'step-title', stepTitle(run.pickStep, turn.prompt)))
+    panel.append(renderPickStep(run, turn))
   } else if (run.phase === 'feedback' && run.lastFeedback) {
     const fb = run.lastFeedback
     panel.classList.add(fb.ok ? 'ok' : 'bad')
@@ -1010,6 +1005,17 @@ function renderRun(): HTMLElement {
     )
     for (const s of fb.strengths) panel.append(el('p', 'good', `✓ ${s}`))
     for (const t of fb.tips) panel.append(el('p', 'tip', `→ ${t}`))
+    const actions = el('div', 'hub-actions stack')
+    if (!fb.ok && run.audience > 0) {
+      const retry = el('button', 'btn secondary', '← Change answers')
+      retry.type = 'button'
+      retry.addEventListener('click', () => {
+        if (!run) return
+        run = retryCurrentTurn(run, meta)
+        render()
+      })
+      actions.append(retry)
+    }
     const next = el('button', 'btn primary big', run.audience <= 0 ? 'See result' : 'Next line')
     next.type = 'button'
     next.addEventListener('click', () => {
@@ -1021,7 +1027,8 @@ function renderRun(): HTMLElement {
       }
       render()
     })
-    panel.append(next)
+    actions.append(next)
+    panel.append(actions)
   }
   main.append(panel)
   return main

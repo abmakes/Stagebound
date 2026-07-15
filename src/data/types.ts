@@ -185,4 +185,6 @@ export interface RunResult {
   skillPointsGained: number
   leveledUp: boolean
   newUnlocks: string[]
+  /** Rubric stats hit on successful turns this run */
+  statsHit: RubricStat[]
 }

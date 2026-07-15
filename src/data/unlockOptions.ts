@@ -34,12 +34,12 @@ export function isStanceUnlocked(stance: StanceId, unlockedSkills: SkillId[]): b
 
 /** Codex entries granted when buying each skill */
 export const SKILL_CODEX: Partial<Record<SkillId, string[]>> = {
-  emotion: ['face_feeling'],
+  emotion: ['face_feeling', 'eyes_audience'],
   tone: ['tone_variety'],
   gesture: ['open_palms', 'two_hands', 'hand_chest'],
   gesture_more: ['finger_count', 'hand_chop', 'mime', 'step_forward'],
-  stance: ['tall_open', 'no_pacing'],
-  stance_more: ['step_forward'],
+  stance: ['tall_open', 'balanced', 'no_pacing'],
+  stance_more: ['avoid_slouch', 'avoid_pockets', 'no_pacing'],
   volume: ['volume'],
   pause: ['pause'],
   stress: ['word_stress'],

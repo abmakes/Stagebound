@@ -280,6 +280,7 @@ function finishRun(state: RunState, meta: MetaState, won: boolean): RunState {
     skillPointsGained,
     leveledUp: reallyWon,
     newUnlocks: [],
+    statsHit: state.statsHit,
   }
   // silence unused
   void meta

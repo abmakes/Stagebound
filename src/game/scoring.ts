@@ -74,16 +74,100 @@ function labelFor(slot: DeliverySlot, value: string | undefined): string {
   }
 }
 
+/** Short labels for coach tips (no parenthetical noise). */
+function tipLabel(slot: DeliverySlot, value: string | undefined): string {
+  if (!value) return 'a clearer choice'
+  const tipNames: Partial<Record<DeliverySlot, Record<string, string>>> = {
+    emotion: {
+      smile: 'a friendly smile',
+      serious: 'a serious face',
+      excited: 'an excited face',
+      concerned: 'a concerned face',
+    },
+    gesture: {
+      two_hands: 'two hands (one, then the other)',
+      finger_count: 'counting on your fingers',
+      hand_chest: 'a hand on your chest',
+      hand_chop: 'a hand chop',
+      mime: 'miming the action',
+      open_palms: 'open palms',
+      step_forward: 'one step forward',
+      none: 'no gesture',
+    },
+    tone: {
+      serious: 'a serious tone',
+      excited: 'an excited tone',
+      friendly: 'a friendly tone',
+      hopeful: 'a hopeful tone',
+    },
+    volume: {
+      soft: 'a soft voice',
+      clear: 'a clear voice',
+      strong: 'a strong voice',
+      shout: 'a shout',
+    },
+    pause: {
+      none: 'no pause',
+      after: 'a pause after the line',
+    },
+    eyes: {
+      notes: 'looking at your notes',
+      audience: 'looking at the audience',
+      scan: 'scanning the room',
+    },
+    stance: {
+      slouch: 'a slouch',
+      pockets: 'hands in pockets',
+      tall_open: 'a tall open stance',
+      pacing: 'nervous pacing',
+      balanced: 'standing still and balanced',
+    },
+  }
+  return tipNames[slot]?.[value] || labelFor(slot, value).replace(/\s*\([^)]*\)/g, '').trim()
+}
+
+function shortMoment(moment: string): string {
+  return moment.replace(/^Body — |^Opening — |^Closing — /i, '').trim() || moment
+}
+
+function situationFor(slot: DeliverySlot, moment: string): string {
+  const m = shortMoment(moment).toLowerCase()
+  switch (slot) {
+    case 'emotion':
+      return `your face matches “${shortMoment(moment)}”`
+    case 'tone':
+      if (/greet|hello|welcome|open/i.test(m)) return 'you greet the audience'
+      if (/close|thank|end/i.test(m)) return 'you close the speech'
+      if (/problem|harm|danger|serious/i.test(m)) return 'you talk about a serious problem'
+      return `you speak about ${shortMoment(moment).toLowerCase()}`
+    case 'gesture':
+      return `you deliver “${shortMoment(moment)}”`
+    case 'stance':
+      if (/important|must|call|boss|strong/i.test(m)) return 'you make an important point'
+      return `you speak about ${shortMoment(moment).toLowerCase()}`
+    case 'volume':
+      return 'the whole room can hear you without strain'
+    case 'pause':
+      return 'a big idea needs time to land'
+    case 'eyes':
+      return 'you connect with people in the room'
+    default:
+      return `you speak about ${shortMoment(moment).toLowerCase()}`
+  }
+}
+
 function contrastTip(
   moment: string,
   slot: DeliverySlot,
   expectedVal: string | undefined,
   chosenVal: string | undefined,
 ): string {
-  const want = labelFor(slot, expectedVal)
-  const got = labelFor(slot, chosenVal)
-  const shortMoment = moment.replace(/^Body — |^Opening — |^Closing — /i, '').trim() || moment
-  return `For ${shortMoment}, use ${want} — not ${got}.`
+  const want = tipLabel(slot, expectedVal)
+  const got = tipLabel(slot, chosenVal)
+  if (slot === 'volume') {
+    return `Choose ${want} instead of ${got} so ${situationFor(slot, moment)}.`
+  }
+  return `Choose ${want} instead of ${got} when ${situationFor(slot, moment)}.`
 }
 
 function lockedUnlockTip(slot: DeliverySlot): string {
@@ -149,7 +233,7 @@ export function scoreTurn(
 
   if (sentence.isCorrect) {
     points += 1
-    strengths.push('Clear line for this moment')
+    strengths.push('You picked a line that fits this part of the speech.')
   } else {
     tips.push(sentence.tipIfWrong || 'Pick a line that fits this part of the speech.')
   }
@@ -184,23 +268,32 @@ export function scoreTurn(
     } else {
       const want = list[0] || fallback || 'the key word'
       const got = delivery[key] || 'a different word'
-      tips.push(`For ${turn.moment}, stress “${want}” — not “${got}”.`)
+      if (key === 'stressWord') {
+        tips.push(`Stress the word “${want}” instead of “${got}” in this line.`)
+      } else {
+        tips.push(`Say “${want}” clearly instead of “${got}” in this line.`)
+      }
     }
   }
 
+  const volumeStrength =
+    expected.volume === 'soft'
+      ? 'Your soft voice fit the moment'
+      : expected.volume === 'strong'
+        ? 'Your strong voice fit the urgency'
+        : expected.volume === 'shout'
+          ? 'Your volume matched the moment'
+          : 'Your clear voice reached the room'
+
   checkChoice('emotion', 'Your face matched the feeling')
-  checkChoice('gesture', 'Gesture matched the line')
-  checkChoice('tone', 'Tone matched the message')
-  checkChoice('volume', 'Volume was clear (not a shout)')
-  checkChoice('pause', 'Good pause')
-  checkChoice('eyes', 'Eyes on the audience')
-  checkChoice('stance', 'Strong stance')
+  checkChoice('gesture', 'Your gesture matched the line')
+  checkChoice('tone', 'Your tone matched the message')
+  checkChoice('volume', volumeStrength)
+  checkChoice('pause', 'You paused so the idea could land')
+  checkChoice('eyes', 'You kept your eyes on the audience')
+  checkChoice('stance', 'Your stance looked strong and steady')
   checkWord('stressWord', 'You stressed a key word', sentence.goodStress, expected.stressWord)
   checkWord('sayClearWord', 'You marked a clear word', sentence.clearWords, expected.sayClearWord)
-
-  if (slots.includes('volume') && delivery.volume === 'shout' && expected.volume !== 'shout') {
-    tips.push('Shouting is not the same as a strong, clear voice.')
-  }
 
   const ratio = maxPoints ? points / maxPoints : 0
   const ok = ratio >= 0.6 && sentence.isCorrect

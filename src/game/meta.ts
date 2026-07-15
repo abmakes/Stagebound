@@ -163,9 +163,6 @@ function migrateSkillTiers(m: MetaState): MetaState {
   if (skills.has('gesture') && needsMoreGestures && !skills.has('gesture_more')) {
     skills.add('gesture_more')
     m.skillRanks.gesture_more = 1
-    for (const id of SKILL_CODEX.gesture_more || []) {
-      if (!m.unlockedCodex.includes(id)) m.unlockedCodex.push(id)
-    }
   }
   if (skills.has('stance') && (needsMoreGestures || skills.has('volume') || skills.has('pause')) && !skills.has('stance_more')) {
     // Optional: only auto-grant stance_more if they already progressed past ch4
@@ -175,6 +172,12 @@ function migrateSkillTiers(m: MetaState): MetaState {
     }
   }
   m.unlockedSkills = [...skills]
+  // Sync Codex cards for every owned skill (covers new entries on older saves)
+  for (const skill of m.unlockedSkills) {
+    for (const id of SKILL_CODEX[skill] || []) {
+      if (!m.unlockedCodex.includes(id)) m.unlockedCodex.push(id)
+    }
+  }
   return m
 }
 
@@ -289,9 +292,14 @@ export function applyRunResult(meta: MetaState, result: RunResult): MetaState {
       }
     }
     const packBoost: Record<PackId, RubricStat[]> = {
-      environment: ['vocalVariety', 'gestures', 'purposefulMovement'],
-      job: ['clarity', 'gestures', 'eyeContact'],
-      travel: ['clarity', 'vocalVariety', 'unintentionalMovement'],
+      environment: ['vocalVariety', 'gestures', 'purposefulMovement', 'interest'],
+      job: ['clarity', 'gestures', 'eyeContact', 'interest'],
+      travel: ['clarity', 'vocalVariety', 'unintentionalMovement', 'eyeContact'],
+    }
+    // +1 per distinct rubric boosted at least once on successful turns
+    const fromPlay = [...new Set(result.statsHit)]
+    for (const s of fromPlay) {
+      next.stats[s] = Math.min(5, (next.stats[s] || 1) + 1)
     }
     for (const s of packBoost[result.packId]) {
       next.stats[s] = Math.min(5, (next.stats[s] || 1) + 1)

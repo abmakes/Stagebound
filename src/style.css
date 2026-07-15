@@ -615,6 +615,13 @@ body:has(.run-screen) {
   line-height: 1.35;
 }
 
+.hero-blurb.stats-hint {
+  margin-top: 0.55rem !important;
+  margin-bottom: 0 !important;
+  color: var(--ink-soft);
+  font-size: 0.8rem !important;
+}
+
 .hero-card-btns {
   display: flex;
   flex-wrap: wrap;
@@ -773,6 +780,23 @@ body:has(.run-screen) {
 .coach-note {
   margin-bottom: 1rem;
   border-left: 5px solid var(--amber);
+}
+
+.coach-note strong {
+  display: block;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  margin-bottom: 0.35rem;
+}
+
+.coach-note .coach-quote {
+  margin: 0;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.05rem;
+  font-style: italic;
+  line-height: 1.35;
+  color: var(--ink);
 }
 
 .coach-note .tip-line,

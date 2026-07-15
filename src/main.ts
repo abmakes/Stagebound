@@ -467,6 +467,13 @@ function renderHub(): HTMLElement {
       stats.append(row)
     }
     copy.append(stats)
+    copy.append(
+      el(
+        'p',
+        'hero-blurb stats-hint',
+        'Grow these by nailing matching turns, then clearing chapters.',
+      ),
+    )
   }
 
   const cardBtns = el('div', 'hero-card-btns')
@@ -492,7 +499,14 @@ function renderHub(): HTMLElement {
 
   if (meta.lastReflection && isUsefulCoachNote(meta.lastReflection)) {
     const note = el('aside', 'coach-note')
-    note.innerHTML = `<strong>Coach</strong><p>${escapeHtml(meta.lastReflection.strength)}</p><p class="tip-line">${escapeHtml(meta.lastReflection.tip)}</p>`
+    const quote =
+      meta.lastReflection.tip && !isGenericCoachTip(meta.lastReflection.tip)
+        ? meta.lastReflection.tip
+        : meta.lastReflection.strength
+    note.append(el('strong', '', 'Your coach says'))
+    const q = el('p', 'coach-quote')
+    q.textContent = `“${quote}”`
+    note.append(q)
     main.append(note)
   }
 
@@ -1366,19 +1380,25 @@ function statCard(label: string, value: string): HTMLElement {
   return c
 }
 
+function isGenericCoachTip(tip: string): boolean {
+  return (
+    tip === 'Replay and try a different face or gesture on the same line.' ||
+    tip === 'Spend a skill point, then retry this chapter.'
+  )
+}
+
+function isGenericCoachStrength(strength: string): boolean {
+  return (
+    strength === 'Clear line for this moment' ||
+    strength === 'You picked a line that fits this part of the speech.' ||
+    strength === 'You kept speaking on stage.' ||
+    strength === 'You learned something from the miss.'
+  )
+}
+
 function isUsefulCoachNote(r: { strength: string; tip: string }): boolean {
-  const genericStrength = new Set([
-    'Clear line for this moment',
-    'You kept speaking on stage.',
-    'You learned something from the miss.',
-  ])
-  const genericTip = new Set([
-    'Replay and try a different face or gesture on the same line.',
-    'Spend a skill point, then retry this chapter.',
-  ])
-  const strengthOk = !!r.strength && !genericStrength.has(r.strength)
-  const tipOk = !!r.tip && !genericTip.has(r.tip)
-  // Only take hub space when there is a real tip or a specific strength
+  const tipOk = !!r.tip && !isGenericCoachTip(r.tip)
+  const strengthOk = !!r.strength && !isGenericCoachStrength(r.strength)
   return tipOk || strengthOk
 }
 

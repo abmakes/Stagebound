@@ -1,0 +1,30 @@
+import type { EmotionId } from './types'
+
+/** Face / emotion answer key per turn id */
+export const EMOTION_BY_TURN: Record<string, EmotionId> = {
+  'env-open': 'smile',
+  'env-problem': 'serious',
+  'env-harm': 'serious',
+  'env-feeling': 'concerned',
+  'env-event': 'serious',
+  'env-actions': 'smile',
+  'env-mime': 'smile',
+  'env-close': 'smile',
+  'env-boss': 'serious',
+  'job-open': 'smile',
+  'job-dream': 'excited',
+  'job-tasks': 'excited',
+  'job-skills': 'smile',
+  'job-event': 'serious',
+  'job-study': 'serious',
+  'job-close': 'smile',
+  'job-boss': 'excited',
+  'tr-open': 'smile',
+  'tr-country': 'smile',
+  'tr-sights': 'excited',
+  'tr-event': 'smile',
+  'tr-tips': 'smile',
+  'tr-feeling': 'excited',
+  'tr-close': 'smile',
+  'tr-boss': 'smile',
+}

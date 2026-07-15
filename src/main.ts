@@ -471,7 +471,7 @@ function renderHub(): HTMLElement {
       el(
         'p',
         'hero-blurb stats-hint',
-        'Grow these by nailing matching turns, then clearing chapters.',
+        'Grow these by matching turns well, then clearing chapters.',
       ),
     )
   }

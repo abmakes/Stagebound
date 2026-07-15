@@ -52,7 +52,6 @@ import {
   audienceMood,
   currentTurn,
   goBackStep,
-  retryCurrentTurn,
   selectDelivery,
   selectSentence,
   startChapterRun,
@@ -1012,16 +1011,6 @@ function renderRun(): HTMLElement {
     for (const s of fb.strengths) panel.append(el('p', 'good', `✓ ${s}`))
     for (const t of fb.tips) panel.append(el('p', 'tip', `→ ${t}`))
     const actions = el('div', 'hub-actions stack')
-    if (!fb.ok && run.audience > 0) {
-      const retry = el('button', 'btn secondary', '← Change answers')
-      retry.type = 'button'
-      retry.addEventListener('click', () => {
-        if (!run) return
-        run = retryCurrentTurn(run, meta)
-        render()
-      })
-      actions.append(retry)
-    }
     const next = el('button', 'btn primary big', run.audience <= 0 ? 'See result' : 'Next line')
     next.type = 'button'
     next.addEventListener('click', () => {

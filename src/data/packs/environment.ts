@@ -354,7 +354,7 @@ export const environmentPack: TopicPack = {
     },
     {
       id: 'env-boss',
-      moment: 'Boss — Save the River',
+      moment: 'Max difficulty — Save the River',
       beat: 'boss',
       prompt: 'Make a strong call to action. Be urgent — do not shout.',
       sentences: [

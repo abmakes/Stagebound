@@ -337,7 +337,7 @@ export const travelPack: TopicPack = {
     },
     {
       id: 'tr-boss',
-      moment: 'Boss — Travel Pitch Night',
+      moment: 'Max difficulty — Travel Pitch Night',
       beat: 'boss',
       prompt: 'Invite the audience to imagine the trip. Calm rhythm wins trust.',
       sentences: [

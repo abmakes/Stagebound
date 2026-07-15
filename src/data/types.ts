@@ -151,6 +151,8 @@ export interface MetaState {
   unlockedCodex: string[]
   stats: Record<RubricStat, number>
   bestScore: Record<string, number>
+  /** Max points available on the run that set bestScore (for star ratios) */
+  bestMaxScore: Record<string, number>
   lastReflection: { strength: string; tip: string } | null
   pendingLessonChapterId: string | null
   /** First-time storyboard intro already shown */

@@ -63,13 +63,7 @@ export const CURRICULUM_UNITS: CurriculumUnit[] = [
     id: 'finals',
     title: 'Final Speeches',
     subtitle: 'Full delivery exams',
-    chapterIds: [
-      'final-1-river',
-      'final-2-career',
-      'final-3-travel',
-      'final-4-pressure',
-      'final-5-championship',
-    ],
+    chapterIds: ['final-2-career', 'final-3-travel', 'final-5-championship'],
   },
 ]
 
@@ -182,7 +176,7 @@ export const CHAPTERS: ChapterDef[] = [
     requires: ['emotion', 'tone', 'gesture', 'gesture_more', 'stance'],
     activeSlots: ['emotion', 'tone', 'gesture', 'stance', 'volume', 'pause', 'stressWord'],
     lesson: {
-      headline: 'Boss night on the river stage',
+      headline: 'Max difficulty on the river stage',
       body: 'You know the basics. Now stack them. If you unlocked Volume, Pause, or Word Stress with skill points, this chapter gets much easier.',
       examples: [
         { label: 'Strong volume', detail: 'Urgency without shouting' },

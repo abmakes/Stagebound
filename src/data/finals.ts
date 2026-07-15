@@ -13,42 +13,12 @@ const FULL_SLOTS: DeliverySlot[] = [
 
 const CORE_REQ = ['emotion', 'tone', 'gesture', 'gesture_more', 'stance'] as const
 
-/** Five big-speech finals after the 7 curriculum chapters */
+/** Three finals after the 7 curriculum chapters (Job → Travel → Championship) */
 export const FINALS: ChapterDef[] = [
   {
-    id: 'final-1-river',
-    number: 8,
-    title: 'Final 1 · Save the River',
-    subtitle: 'Full delivery — every tool you have unlocked.',
-    requires: [...CORE_REQ],
-    activeSlots: FULL_SLOTS,
-    lesson: {
-      headline: 'Final exam: Environment',
-      body: 'Use face, tone, gesture, stance, volume, pause, and word stress together. Match each line carefully.',
-      examples: [
-        { label: 'Long form', detail: 'More delivery choices per line' },
-        { label: 'Audience', detail: 'Mistakes drain the crowd faster' },
-      ],
-    },
-    packId: 'environment',
-    turnIds: [
-      'env-open',
-      'env-problem',
-      'env-harm',
-      'env-feeling',
-      'env-actions',
-      'env-mime',
-      'env-close',
-      'env-boss',
-    ],
-    pressureSkill: 'volume',
-    rewardSkillPoints: 2,
-    practiceSkillPoints: 1,
-  },
-  {
     id: 'final-2-career',
-    number: 9,
-    title: 'Final 2 · Career Fair',
+    number: 8,
+    title: 'Final 1 · Career Fair',
     subtitle: 'Sell your dream job with full MC delivery.',
     requires: [...CORE_REQ],
     activeSlots: ['emotion', 'tone', 'gesture', 'stance', 'volume', 'stressWord', 'eyes'],
@@ -77,8 +47,8 @@ export const FINALS: ChapterDef[] = [
   },
   {
     id: 'final-3-travel',
-    number: 10,
-    title: 'Final 3 · Travel Pitch',
+    number: 9,
+    title: 'Final 2 · Travel Pitch',
     subtitle: 'Calm pauses and clear place names.',
     requires: [...CORE_REQ],
     activeSlots: [
@@ -115,39 +85,9 @@ export const FINALS: ChapterDef[] = [
     practiceSkillPoints: 1,
   },
   {
-    id: 'final-4-pressure',
-    number: 11,
-    title: 'Final 4 · Tough Crowd',
-    subtitle: 'Harder Environment run — stay accurate under pressure.',
-    requires: [...CORE_REQ],
-    activeSlots: FULL_SLOTS,
-    lesson: {
-      headline: 'Stricter scoring night',
-      body: 'Same river topic, but the crowd is picky. Aim for strong matches on every line.',
-      examples: [
-        { label: 'Accuracy', detail: 'Wrong gesture costs more attention' },
-        { label: 'Stack skills', detail: 'Use pause + stress + tone together' },
-      ],
-    },
-    packId: 'environment',
-    turnIds: [
-      'env-open',
-      'env-harm',
-      'env-event',
-      'env-feeling',
-      'env-actions',
-      'env-mime',
-      'env-close',
-      'env-boss',
-    ],
-    pressureSkill: 'pause',
-    rewardSkillPoints: 2,
-    practiceSkillPoints: 1,
-  },
-  {
     id: 'final-5-championship',
-    number: 12,
-    title: 'Final 5 · Championship MC Night',
+    number: 10,
+    title: 'Final 3 · Championship MC Night',
     subtitle: 'Ha Long Bay championship — clear this to post your score.',
     requires: [...CORE_REQ],
     activeSlots: FULL_SLOTS,

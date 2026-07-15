@@ -77,9 +77,10 @@ export function defaultMeta(): MetaState {
     winsByPack: { environment: 0, job: 0, travel: 0 },
     totalWins: 0,
     unlockedPacks: ['environment'],
-    unlockedCodex: ['face_feeling', 'tone_variety', 'word_stress'],
+    unlockedCodex: ['face_feeling', 'eyes_audience', 'eyes_scan', 'eyes_notes', 'tone_variety', 'word_stress'],
     stats: { ...DEFAULT_STATS },
     bestScore: {},
+    bestMaxScore: {},
     lastReflection: null,
     pendingLessonChapterId: CHAPTERS[0].id,
     seenIntro: false,
@@ -211,6 +212,8 @@ export function loadMeta(): MetaState {
       finalsMatchSum: parsed.finalsMatchSum || 0,
       finalsMatchCount: parsed.finalsMatchCount || 0,
       bestStageboundScore: parsed.bestStageboundScore || 0,
+      bestScore: parsed.bestScore || {},
+      bestMaxScore: parsed.bestMaxScore || {},
       gameComplete: !!parsed.gameComplete,
       audienceCure: cureFromCleared(parsed.chaptersCleared || []),
     }
@@ -247,7 +250,10 @@ export function applyRunResult(meta: MetaState, result: RunResult): MetaState {
   const next = structuredClone(meta)
   const ch = getChapter(result.chapterId)
   const key = result.chapterId
-  if (result.score > (next.bestScore[key] || 0)) next.bestScore[key] = result.score
+  if (result.score > (next.bestScore[key] || 0)) {
+    next.bestScore[key] = result.score
+    next.bestMaxScore[key] = result.maxScore
+  }
   next.lastReflection = { strength: result.strength, tip: result.tip }
   next.skillPoints += result.skillPointsGained
   next.stageAttempts += 1
@@ -362,6 +368,23 @@ export function addEnergy(meta: MetaState, amount = 1): MetaState {
   m.energy += amount
   saveMeta(m)
   return m
+}
+
+/** Spend 2 skill points for +1 energy (finals-friendly). */
+export function spendSkillPointsForEnergy(
+  meta: MetaState,
+): { meta: MetaState; ok: boolean; msg: string } {
+  if (meta.energy >= ENERGY_MAX) {
+    return { meta, ok: false, msg: 'Energy is already full.' }
+  }
+  if (meta.skillPoints < 2) {
+    return { meta, ok: false, msg: 'Need 2 skill points for 1 energy.' }
+  }
+  const m = structuredClone(meta)
+  m.skillPoints -= 2
+  m.energy += 1
+  saveMeta(m)
+  return { meta: m, ok: true, msg: '+1 energy!' }
 }
 
 export function buySkill(meta: MetaState, skill: SkillId): { meta: MetaState; ok: boolean; msg: string } {

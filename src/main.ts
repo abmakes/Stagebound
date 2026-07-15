@@ -4,6 +4,7 @@ import type {
   AudienceWho,
   DeliverySlot,
   EmotionId,
+  EyesId,
   MetaState,
   PauseId,
   ToneId,
@@ -16,6 +17,7 @@ import {
   TONE_LABELS,
   VOLUME_LABELS,
   PAUSE_LABELS,
+  EYES_LABELS,
   STANCE_LABELS,
   CODEX,
   RUBRIC_LABELS,
@@ -44,6 +46,7 @@ import {
   setPlayerAvatar,
   setPlayerName,
   spendEnergy,
+  spendSkillPointsForEnergy,
 } from './game/meta'
 import type { PlayerAvatar } from './data/types'
 import { expectedFor } from './game/scoring'
@@ -170,6 +173,7 @@ let trainQuiz: TrainQuestion[] = []
 let trainIndex = 0
 let trainCorrect = 0
 let trainEnergyAwarded = false
+let trainOnMenu = false
 let selectedSkill: import('./data/types').SkillId | null = null
 let boardClassCode = 'HALONG-A2'
 let boardNickname = ''
@@ -431,20 +435,24 @@ function renderHub(): HTMLElement {
   if (meta.energy < 1) {
     const getEnergy = el('button', 'btn primary tiny', 'Get energy')
     getEnergy.type = 'button'
-    getEnergy.addEventListener('click', () => startTraining())
+    getEnergy.addEventListener('click', () => openEnergyScreen())
     energyBar.append(getEnergy)
   } else if (meta.energy < ENERGY_MAX) {
     const getEnergy = el('button', 'btn ghost tiny', 'Quiz for +1 ⚡')
     getEnergy.type = 'button'
-    getEnergy.addEventListener('click', () => startTraining())
+    getEnergy.addEventListener('click', () => openEnergyScreen())
     energyBar.append(getEnergy)
   }
   main.append(energyBar)
 
   const hero = el('section', `theater-banner ${hubCardFace === 'stats' ? 'face-stats' : 'face-mc'}`)
+  const artCol = el('div', 'hero-art')
   const art = el('img', 'hero-player') as HTMLImageElement
   art.src = playerSrc(meta.playerAvatar)
   art.alt = 'Your MC'
+  artCol.append(art)
+  const scoreLine = hubProfileScoreLine(meta, currentChapter(meta).id)
+  if (scoreLine) artCol.append(el('p', 'hero-score', scoreLine))
 
   const copy = el('div', 'hero-copy')
   if (hubCardFace === 'mc') {
@@ -494,7 +502,7 @@ function renderHub(): HTMLElement {
   })
   cardBtns.append(change, flip)
   copy.append(cardBtns)
-  hero.append(art, copy)
+  hero.append(artCol, copy)
   main.append(hero)
 
   if (meta.lastReflection && isUsefulCoachNote(meta.lastReflection)) {
@@ -539,7 +547,7 @@ function renderHub(): HTMLElement {
     } else if (needsEnergy) {
       const train = el('button', 'btn primary big', 'Get energy')
       train.type = 'button'
-      train.addEventListener('click', () => startTraining())
+      train.addEventListener('click', () => openEnergyScreen())
       row.append(train)
     }
     playCard.append(row)
@@ -620,7 +628,8 @@ function renderHub(): HTMLElement {
         row.classList.toggle('current', current)
         row.classList.toggle('cleared', cleared)
         const numLabel = c.id.startsWith('final-') ? `F${c.number - 7}` : String(c.number)
-        row.innerHTML = `<span class="num">${numLabel}</span><span class="titles"><strong>${escapeHtml(c.title)}</strong><small>${escapeHtml(c.subtitle)}</small></span><span class="flag">${cleared ? '★' : current ? '▶' : '·'}</span>`
+        const flag = chapterStarFlag(meta, c.id, cleared, current)
+        row.innerHTML = `<span class="num">${numLabel}</span><span class="titles"><strong>${escapeHtml(c.title)}</strong><small>${escapeHtml(c.subtitle)}</small></span><span class="flag">${flag}</span>`
         row.addEventListener('click', () => {
           const g = canPlayChapter(meta, c.id)
           if (!g.ok) {
@@ -716,13 +725,38 @@ function renderLesson(): HTMLElement {
   return main
 }
 
+function openEnergyScreen(): void {
+  trainOnMenu = true
+  trainQuiz = []
+  trainIndex = 0
+  trainCorrect = 0
+  trainEnergyAwarded = false
+  screen = 'train'
+  render()
+}
+
 function startTraining(): void {
+  trainOnMenu = false
   trainQuiz = pickTrainSet(5)
   trainIndex = 0
   trainCorrect = 0
   trainEnergyAwarded = false
   screen = 'train'
   render()
+}
+
+function appendEnergyConvert(actions: HTMLElement): void {
+  const convert = el('button', 'btn secondary', 'Spend 2 skill points → +1 energy')
+  convert.type = 'button'
+  convert.disabled = meta.skillPoints < 2 || meta.energy >= ENERGY_MAX
+  convert.addEventListener('click', () => {
+    const res = spendSkillPointsForEnergy(meta)
+    meta = res.meta
+    if (!res.ok) alert(res.msg)
+    else alert(res.msg)
+    render()
+  })
+  actions.append(convert)
 }
 
 function renderSkills(): HTMLElement {
@@ -839,10 +873,34 @@ function renderSkills(): HTMLElement {
 
 function renderTrain(): HTMLElement {
   const main = el('main', 'train-screen')
-  if (!trainQuiz.length) {
-    startTraining()
+
+  if (trainOnMenu) {
+    main.append(el('h1', '', 'Get energy'))
+    main.append(el('p', 'lead', `You have ⚡ ${meta.energy} energy and ${meta.skillPoints} skill points.`))
+    main.append(el('p', 'lead', 'Or use skill points: 2 points = 1 energy.'))
+    const actions = el('div', 'hub-actions stack')
+    const quiz = el('button', 'btn primary big', 'Take quiz for +1 energy')
+    quiz.type = 'button'
+    quiz.addEventListener('click', () => startTraining())
+    actions.append(quiz)
+    appendEnergyConvert(actions)
+    const back = el('button', 'btn ghost', 'Back to hub')
+    back.type = 'button'
+    back.addEventListener('click', () => {
+      trainOnMenu = false
+      screen = 'hub'
+      render()
+    })
+    actions.append(back)
+    main.append(actions)
     return main
   }
+
+  if (!trainQuiz.length) {
+    trainOnMenu = true
+    return renderTrain()
+  }
+
   if (trainIndex >= trainQuiz.length) {
     const awarded = trainCorrect >= 5
     main.append(el('h1', '', awarded ? 'Training complete!' : 'Keep training'))
@@ -850,7 +908,6 @@ function renderTrain(): HTMLElement {
       if (!trainEnergyAwarded) {
         meta = addEnergy(meta, 1)
         trainEnergyAwarded = true
-        // Track quiz stats for score
         meta = recordQuizResult(meta, trainCorrect, trainQuiz.length)
       }
       main.append(el('p', 'lead', `You got ${trainCorrect}/5. +1 energy! Now ⚡ ${meta.energy}`))
@@ -862,16 +919,19 @@ function renderTrain(): HTMLElement {
       main.append(el('p', 'lead', `You got ${trainCorrect}/5. Need all 5 correct for +1 energy.`))
     }
     const actions = el('div', 'hub-actions stack')
-    const again = el('button', 'btn primary big', '⚡ Get energy again')
+    const again = el('button', 'btn primary big', 'Take quiz again')
     again.type = 'button'
     again.addEventListener('click', () => startTraining())
+    actions.append(again)
+    appendEnergyConvert(actions)
     const back = el('button', 'btn ghost', 'Back to hub')
     back.type = 'button'
     back.addEventListener('click', () => {
+      trainOnMenu = false
       screen = 'hub'
       render()
     })
-    actions.append(again, back)
+    actions.append(back)
     main.append(actions)
     return main
   }
@@ -1002,6 +1062,7 @@ function renderRun(): HTMLElement {
 
   const panel = el('section', 'choice-panel')
   if (run.phase === 'pick') {
+    const topRow = el('div', 'pick-nav')
     const stepIdx = run.pickQueue.indexOf(run.pickStep)
     if (stepIdx > 0) {
       const back = el('button', 'btn ghost pick-back', '← Back')
@@ -1011,8 +1072,17 @@ function renderRun(): HTMLElement {
         run = goBackStep(run)
         render()
       })
-      panel.append(back)
+      topRow.append(back)
     }
+    const leave = el('button', 'btn ghost pick-leave', 'Leave stage')
+    leave.type = 'button'
+    leave.addEventListener('click', () => {
+      run = null
+      screen = 'hub'
+      render()
+    })
+    topRow.append(leave)
+    panel.append(topRow)
     panel.append(el('h2', 'step-title', stepTitle(run.pickStep, turn.prompt)))
     panel.append(renderPickStep(run, turn))
   } else if (run.phase === 'feedback' && run.lastFeedback) {
@@ -1176,6 +1246,9 @@ function optionsForSlot(slot: DeliverySlot): { id: string; label: string }[] {
       break
     case 'pause':
       all = (Object.keys(PAUSE_LABELS) as PauseId[]).map((id) => ({ id, label: PAUSE_LABELS[id] }))
+      break
+    case 'eyes':
+      all = (Object.keys(EYES_LABELS) as EyesId[]).map((id) => ({ id, label: EYES_LABELS[id] }))
       break
     default:
       return []
@@ -1378,6 +1451,36 @@ function statCard(label: string, value: string): HTMLElement {
   c.append(el('p', 'muted', label))
   c.append(el('p', 'stat-value', value))
   return c
+}
+
+function hubProfileScoreLine(m: MetaState, chapterId: string): string | null {
+  if (m.gameComplete || m.bestStageboundScore > 0) {
+    const score = m.bestStageboundScore || computeStageboundScore(m).total
+    return `Score · ${score}`
+  }
+  const best = m.bestScore[chapterId]
+  const max = m.bestMaxScore[chapterId]
+  if (typeof best === 'number' && typeof max === 'number' && max > 0) {
+    return `Best · ${best}/${max}`
+  }
+  if (typeof best === 'number') return `Best · ${best}`
+  return null
+}
+
+/** 1–3 stars from best ratio; ▶ current; · locked/uncleared */
+function chapterStarFlag(m: MetaState, chapterId: string, cleared: boolean, current: boolean): string {
+  const best = m.bestScore[chapterId]
+  const max = m.bestMaxScore[chapterId]
+  if (typeof best === 'number' && typeof max === 'number' && max > 0) {
+    const ratio = best / max
+    const threeNeed = max <= 12 ? 1 : 0.8
+    if (ratio >= threeNeed) return '★★★'
+    if (ratio >= 0.6) return '★★☆'
+    return '★☆☆'
+  }
+  if (cleared) return '★☆☆'
+  if (current) return '▶'
+  return '·'
 }
 
 function isGenericCoachTip(tip: string): boolean {

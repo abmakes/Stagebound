@@ -295,7 +295,7 @@ export const jobPack: TopicPack = {
     },
     {
       id: 'job-boss',
-      moment: 'Boss — Career Fair Spotlight',
+      moment: 'Max difficulty — Career Fair Spotlight',
       beat: 'boss',
       prompt: 'Convince the crowd your plan is clear and confident.',
       sentences: [

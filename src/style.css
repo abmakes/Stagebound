@@ -134,6 +134,25 @@ body:has(.run-screen) {
   font-size: 0.85rem;
 }
 
+.pick-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.pick-nav .pick-back {
+  margin-bottom: 0;
+}
+
+.pick-leave {
+  margin-left: auto;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.85rem;
+}
+
 .intro-player {
   width: min(200px, 55%);
   filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.4));
@@ -588,6 +607,23 @@ body:has(.run-screen) {
   z-index: 0;
 }
 
+.hero-art {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.hero-score {
+  margin: 0;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--amber);
+  line-height: 1.2;
+}
+
 .hero-copy {
   color: var(--paper);
   min-width: 0;
@@ -834,10 +870,14 @@ body:has(.run-screen) {
   margin: 0 0 0.65rem;
 }
 
+.codex h1 {
+  color: var(--amber);
+}
+
 .chapter-row {
   width: 100%;
   display: grid;
-  grid-template-columns: 2rem 1fr 1.2rem;
+  grid-template-columns: 2rem 1fr auto;
   gap: 0.55rem;
   align-items: center;
   text-align: left;
@@ -854,6 +894,13 @@ body:has(.run-screen) {
 .chapter-row.current {
   border-color: var(--amber);
   background: rgba(233, 160, 69, 0.18);
+}
+
+.chapter-row .flag {
+  letter-spacing: 0.02em;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  color: var(--amber);
 }
 
 .chapter-row.cleared {
@@ -1068,6 +1115,10 @@ body:has(.run-screen) {
 
 .codex h1,
 .codex .btn {
+  color: var(--amber);
+}
+
+.codex .btn.ghost {
   color: var(--paper);
 }
 

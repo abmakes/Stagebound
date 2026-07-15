@@ -72,7 +72,21 @@ export const CODEX: CodexEntry[] = [
     id: 'eyes_audience',
     name: 'Look at the audience',
     when: 'Connect with people in the room — not only your notes on stage.',
-    example: 'Scan left, middle, and right while you speak.',
+    example: 'Look up and meet eyes while you greet or make a point.',
+    category: 'eyes',
+  },
+  {
+    id: 'eyes_scan',
+    name: 'Scan the room',
+    when: 'Scan left, middle, and right when you want the whole crowd to feel included.',
+    example: 'On a big finish, slowly look across the audience.',
+    category: 'eyes',
+  },
+  {
+    id: 'eyes_notes',
+    name: 'Avoid only looking at notes',
+    when: 'Notes can help you, but staring only at paper makes people feel ignored.',
+    example: 'Glance at notes, then look back at the audience.',
     category: 'eyes',
   },
   {

@@ -75,8 +75,8 @@ function labelFor(slot: DeliverySlot, value: string | undefined): string {
 }
 
 /** Short labels for coach tips (no parenthetical noise). */
-function tipLabel(slot: DeliverySlot, value: string | undefined): string {
-  if (!value) return 'a clearer choice'
+function tipLabel(slot: DeliverySlot, value: string | undefined): string | null {
+  if (!value) return null
   const tipNames: Partial<Record<DeliverySlot, Record<string, string>>> = {
     emotion: {
       smile: 'a friendly smile',
@@ -161,9 +161,10 @@ function contrastTip(
   slot: DeliverySlot,
   expectedVal: string | undefined,
   chosenVal: string | undefined,
-): string {
+): string | null {
   const want = tipLabel(slot, expectedVal)
   const got = tipLabel(slot, chosenVal)
+  if (!want || !got) return null
   if (slot === 'volume') {
     return `Choose ${want} instead of ${got} so ${situationFor(slot, moment)}.`
   }
@@ -191,7 +192,20 @@ function expectedLocked(
   return false
 }
 
-/** Only score slots the chapter activates AND the player has unlocked (word taps always if in active). */
+/** Slot is taught on this turn (not only listed on the chapter). */
+export function slotIsAuthored(turn: TurnChallenge, slot: DeliverySlot): boolean {
+  if (slot === 'emotion') return true
+  if (turn.slots.includes(slot)) return true
+  const exp = turn.expected[slot]
+  if (exp !== undefined && exp !== null && exp !== '') return true
+  if (slot === 'stressWord' && turn.sentences.some((s) => (s.goodStress?.length || 0) > 0)) return true
+  if (slot === 'sayClearWord' && turn.sentences.some((s) => (s.clearWords?.length || 0) > 0)) return true
+  // Stance defaults via expectedFor → balanced when the chapter activates it
+  if (slot === 'stance') return true
+  return false
+}
+
+/** Only score slots the chapter activates, the player unlocked, AND this turn authors. */
 export function effectiveSlots(
   turn: TurnChallenge,
   activeSlots: DeliverySlot[],
@@ -210,10 +224,8 @@ export function effectiveSlots(
   }
   return activeSlots.filter((slot) => {
     const sk = skillForSlot[slot]
-    if (!sk) return true
-    if (!unlockedSkills.includes(sk)) return false
-    if (turn.slots.includes(slot) || activeSlots.includes(slot)) return true
-    return false
+    if (sk && !unlockedSkills.includes(sk)) return false
+    return slotIsAuthored(turn, slot)
   })
 }
 
@@ -227,9 +239,18 @@ export function scoreTurn(
   const tips: string[] = []
   const strengths: string[] = []
   let points = 0
-  const slots = effectiveSlots(turn, activeSlots, unlockedSkills)
-  const maxPoints = 1 + slots.length
   const expected = expectedFor(turn)
+  const sentenceForSlots = sentence
+  const slots = effectiveSlots(turn, activeSlots, unlockedSkills).filter((slot) => {
+    if (slot === 'stressWord') {
+      return !!(sentenceForSlots.goodStress?.length || expected.stressWord)
+    }
+    if (slot === 'sayClearWord') {
+      return !!(sentenceForSlots.clearWords?.length || expected.sayClearWord)
+    }
+    return !!(expected[slot] as string | undefined)
+  })
+  const maxPoints = 1 + slots.length
 
   if (sentence.isCorrect) {
     points += 1
@@ -242,6 +263,8 @@ export function scoreTurn(
     if (!slots.includes(key)) return
     const exp = expected[key] as string | undefined
     const got = delivery[key] as string | undefined
+    // Never grade or tip a slot with no answer key (avoids “a clearer choice”)
+    if (!exp) return
     if (got === exp) {
       points += 1
       strengths.push(goodMsg)
@@ -251,7 +274,8 @@ export function scoreTurn(
       tips.push(lockedUnlockTip(key))
       return
     }
-    tips.push(contrastTip(turn.moment, key, exp, got))
+    const tip = contrastTip(turn.moment, key, exp, got)
+    if (tip) tips.push(tip)
   }
 
   const checkWord = (

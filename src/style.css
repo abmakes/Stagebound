@@ -1109,6 +1109,14 @@ body:has(.run-screen) {
   color: var(--bg2);
 }
 
+.codex-card .example {
+  margin: 0.45rem 0 0;
+  font-family: 'Fraunces', Georgia, serif;
+  font-style: italic;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
 .codex-card.off {
   opacity: 0.5;
 }

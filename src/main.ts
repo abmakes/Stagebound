@@ -69,8 +69,8 @@ const AUDIENCE_ORDER: AudienceWho[] = ['oldman', 'woman', 'girl']
 
 const INTRO_PANELS = [
   {
-    title: 'You are an MC',
-    body: 'Ha Long is suffering from boredom. Only the best MC can bring life back to this crowd before we lose them for good. Being an MC — Master of Ceremonies — is a real career path you can train for.',
+    title: 'You have been chosen',
+    body: 'Ha Long is suffering from boredom. Only the best public speaker can bring this crowd back before we lose them for good. So you have been chosen as the master of ceremonies — the MC.',
     visual: 'ranger' as const,
   },
   {
@@ -265,7 +265,7 @@ function renderIntro(): HTMLElement {
     copy.append(el('p', 'eyebrow', 'Welcome to Stagebound'))
     copy.append(el('h1', '', 'Choose your MC'))
     copy.append(
-      el('p', 'lead', 'Pick who you want to be on stage in Ha Long Bay. Being an MC is a career you can train for.'),
+      el('p', 'lead', 'Pick who stands on stage in Ha Long Bay. You will speak as the MC.'),
     )
     const next = el('button', 'btn primary big', 'Continue')
     next.type = 'button'
@@ -976,7 +976,9 @@ function renderCodex(): HTMLElement {
     card.append(el('h3', '', unlocked ? entry.name : '???'))
     if (unlocked) {
       card.append(el('p', '', entry.when))
-      card.append(el('p', 'example', entry.example))
+      const example = el('p', 'example')
+      example.textContent = asSpeechQuote(entry.example)
+      card.append(example)
     }
     list.append(card)
   }
@@ -1451,6 +1453,19 @@ function statCard(label: string, value: string): HTMLElement {
   c.append(el('p', 'muted', label))
   c.append(el('p', 'stat-value', value))
   return c
+}
+
+function asSpeechQuote(text: string): string {
+  const t = text.trim()
+  if (!t) return t
+  if (
+    (t.startsWith('“') && t.endsWith('”')) ||
+    (t.startsWith('"') && t.endsWith('"')) ||
+    (t.startsWith('‘') && t.endsWith('’'))
+  ) {
+    return t
+  }
+  return `“${t}”`
 }
 
 function hubProfileScoreLine(m: MetaState, chapterId: string): string | null {

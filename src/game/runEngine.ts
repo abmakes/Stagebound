@@ -1,8 +1,8 @@
-import type { ChapterDef, DeliveryChoice, DeliverySlot, MetaState, RunResult } from '../data/types'
+import type { ChapterDef, DeliveryChoice, DeliverySlot, MetaState, RunResult, TurnChallenge } from '../data/types'
 import { getPack } from '../data'
 import { getChapter } from '../data/curriculum'
 import { townFullyCured } from './meta'
-import { moodFromAudience, reflectionFromRun, scoreTurn } from './scoring'
+import { effectiveSlots, moodFromAudience, reflectionFromRun, scoreTurn } from './scoring'
 
 export type RunPhase = 'pick' | 'feedback' | 'finished'
 export type PickStep = 'sentence' | DeliverySlot | 'confirm'
@@ -32,7 +32,11 @@ export interface RunState {
 
 const AUDIENCE_MAX = 100
 
-function buildPickQueue(activeSlots: DeliverySlot[], unlocked: MetaState['unlockedSkills']): PickStep[] {
+function buildPickQueue(
+  turn: TurnChallenge,
+  activeSlots: DeliverySlot[],
+  unlocked: MetaState['unlockedSkills'],
+): PickStep[] {
   const order: DeliverySlot[] = [
     'emotion',
     'tone',
@@ -44,23 +48,10 @@ function buildPickQueue(activeSlots: DeliverySlot[], unlocked: MetaState['unlock
     'sayClearWord',
     'eyes',
   ]
+  const authored = effectiveSlots(turn, activeSlots, unlocked)
   const steps: PickStep[] = ['sentence']
   for (const slot of order) {
-    if (!activeSlots.includes(slot)) continue
-    const need: Record<string, string> = {
-      emotion: 'emotion',
-      tone: 'tone',
-      gesture: 'gesture',
-      stance: 'stance',
-      volume: 'volume',
-      pause: 'pause',
-      stressWord: 'stress',
-      sayClearWord: 'stress',
-      eyes: 'emotion',
-    }
-    const sk = need[slot]
-    if (sk && !unlocked.includes(sk as never)) continue
-    steps.push(slot)
+    if (authored.includes(slot)) steps.push(slot)
   }
   steps.push('confirm')
   return steps
@@ -76,7 +67,10 @@ export function startChapterRun(meta: MetaState, chapterId: string): RunState {
   // Small bonus for unlocked skills (capped so early runs still look afflicted)
   audience += Math.min(6, meta.unlockedSkills.length)
 
-  const queue = buildPickQueue(ch.activeSlots, meta.unlockedSkills)
+  const pack = getPack(ch.packId)
+  const firstTurn = pack.turns.find((t) => t.id === ch.turnIds[0])
+  if (!firstTurn) throw new Error(`Missing turn ${ch.turnIds[0]}`)
+  const queue = buildPickQueue(firstTurn, ch.activeSlots, meta.unlockedSkills)
   return {
     chapterId,
     packId: ch.packId,
@@ -177,7 +171,8 @@ export function retryCurrentTurn(state: RunState, meta: MetaState): RunState {
   if (state.phase !== 'feedback' || !state.lastFeedback) return state
   const fb = state.lastFeedback
   const ch = getChapter(state.chapterId)
-  const queue = buildPickQueue(ch.activeSlots, meta.unlockedSkills)
+  const turn = currentTurn(state)
+  const queue = buildPickQueue(turn, ch.activeSlots, meta.unlockedSkills)
   return {
     ...state,
     score: Math.max(0, state.score - fb.points),
@@ -248,7 +243,11 @@ export function advanceAfterFeedback(state: RunState, meta: MetaState): RunState
   if (nextIndex >= state.turnIds.length) return finishRun(state, meta, true)
 
   const ch = getChapter(state.chapterId)
-  const queue = buildPickQueue(ch.activeSlots, meta.unlockedSkills)
+  const nextTurnId = state.turnIds[nextIndex]
+  const pack = getPack(state.packId)
+  const nextTurn = pack.turns.find((t) => t.id === nextTurnId)
+  if (!nextTurn) throw new Error(`Missing turn ${nextTurnId}`)
+  const queue = buildPickQueue(nextTurn, ch.activeSlots, meta.unlockedSkills)
   return {
     ...state,
     turnIndex: nextIndex,

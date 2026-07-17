@@ -31,7 +31,7 @@ The board used to live only in each browser’s `localStorage`, so students coul
    - `UPSTASH_REDIS_REST_TOKEN`
 4. Redeploy the site (Deployments → … → Redeploy).
 
-Teacher tip: pick one class code (e.g. `HALONG-A2`). Students join once with their name + that code. After every chapter they clear, their Stagebound Score updates on the shared board so the class can see who is ahead.
+Default class code is `WORLD2` (students can type `World2`). Students join once with their name + that code. After every chapter they clear, their Stagebound Score updates on the shared board so the class can see who is ahead.
 
 Without the Redis env vars, the app still works and keeps a **this-device-only** fallback board.
 

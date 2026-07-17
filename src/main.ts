@@ -204,7 +204,7 @@ let hubExpandUnit: string | null = null
 
 function persistBoardIdentity(nickname: string, classCode: string, joined = true): void {
   boardNickname = nickname.trim().slice(0, 20)
-  boardClassCode = (classCode.trim().toUpperCase() || 'HALONG-A2').slice(0, 32)
+  boardClassCode = (classCode.trim().toUpperCase() || 'WORLD2').slice(0, 32)
   boardJoined = joined && !!boardNickname
   saveBoardProfile({
     nickname: boardNickname,
@@ -1431,13 +1431,13 @@ function renderResult(): HTMLElement {
       name.value = boardNickname || meta.playerName || ''
       name.maxLength = 20
       const code = el('input', 'board-input') as HTMLInputElement
-      code.placeholder = 'Class code e.g. HALONG-A2'
+      code.placeholder = 'Class code e.g. World2'
       code.value = boardClassCode
       boardNote.append(name, code)
       const join = el('button', 'btn primary', 'Join & post score')
       join.type = 'button'
       join.addEventListener('click', () => {
-        persistBoardIdentity(name.value || meta.playerName || 'MC', code.value || 'HALONG-A2', true)
+        persistBoardIdentity(name.value || meta.playerName || 'MC', code.value || 'WORLD2', true)
         void pushLiveScore(boardNickname).then(() => {
           run = null
           openBoard()
@@ -1528,13 +1528,13 @@ function renderScore(): HTMLElement {
   name.value = boardNickname || meta.playerName || ''
   name.maxLength = 20
   const code = el('input', 'board-input') as HTMLInputElement
-  code.placeholder = 'Class code e.g. HALONG-A2'
+  code.placeholder = 'Class code e.g. World2'
   code.value = boardClassCode
   form.append(name, code)
   const post = el('button', 'btn primary big', boardJoined ? 'Update my score' : 'Post my score')
   post.type = 'button'
   post.addEventListener('click', () => {
-    persistBoardIdentity(name.value || meta.playerName || 'MC', code.value || 'HALONG-A2', true)
+    persistBoardIdentity(name.value || meta.playerName || 'MC', code.value || 'WORLD2', true)
     post.disabled = true
     post.textContent = 'Posting…'
     void pushLiveScore(boardNickname).then(() => {
@@ -1571,7 +1571,7 @@ function renderBoard(): HTMLElement {
   load.type = 'button'
   load.disabled = boardLoading
   load.addEventListener('click', () => {
-    boardClassCode = code.value.trim().toUpperCase() || 'HALONG-A2'
+    boardClassCode = code.value.trim().toUpperCase() || 'WORLD2'
     saveBoardProfile({ classCode: boardClassCode, nickname: boardNickname, joined: boardJoined })
     boardNeedsRefresh = true
     void refreshBoard(boardClassCode).then(() => render())

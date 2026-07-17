@@ -73,7 +73,7 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const classCode = normalizeClassCode(req.query.classCode) || 'HALONG-A2'
+      const classCode = normalizeClassCode(req.query.classCode) || 'WORLD2'
       if (!classCode) {
         res.status(400).json({ error: 'classCode is required' })
         return
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       const body = parseBody(req)
-      const classCode = normalizeClassCode(body.classCode) || 'HALONG-A2'
+      const classCode = normalizeClassCode(body.classCode) || 'WORLD2'
       const nickname = normalizeNickname(body.nickname)
       const score = Math.round(Number(body.score))
       const accuracy = Number(body.accuracy)

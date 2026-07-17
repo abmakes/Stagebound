@@ -23,7 +23,7 @@ export interface BoardLoadResult {
 
 const BOARD_KEY = 'stagebound-class-board-v1'
 const PROFILE_KEY = 'stagebound-board-profile-v1'
-const DEFAULT_CLASS = 'HALONG-A2'
+const DEFAULT_CLASS = 'WORLD2'
 
 function normalizeClassCode(raw: string): string {
   return raw.trim().toUpperCase().slice(0, 32) || DEFAULT_CLASS

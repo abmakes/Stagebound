@@ -28,6 +28,7 @@ import { pickTrainSet, type TrainQuestion } from './data/training'
 import {
   ensureBoardEnrollment,
   leaveBoard,
+  leaveAndRemoveFromBoard,
   loadBoardProfile,
   loadBoardAsync,
   postToBoard,
@@ -1698,9 +1699,16 @@ function renderBoard(): HTMLElement {
     const leave = el('button', 'btn ghost', 'Leave class board')
     leave.type = 'button'
     leave.addEventListener('click', () => {
-      persistBoardIdentity(boardNickname, boardClassCode, false)
-      boardStatus = 'You left the class board'
-      render()
+      leave.disabled = true
+      leave.textContent = 'Removing…'
+      void leaveAndRemoveFromBoard().then((result) => {
+        boardNickname = loadBoardProfile().nickname
+        boardClassCode = loadBoardProfile().classCode
+        boardJoined = false
+        applyBoardResult(result, result.error || 'You left the class board. Your name was removed.')
+        boardNeedsRefresh = true
+        render()
+      })
     })
     status.append(leave)
     main.append(status)

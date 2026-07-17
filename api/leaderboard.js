@@ -160,7 +160,27 @@ export default async function handler(req, res) {
       return
     }
 
-    res.setHeader('Allow', 'GET, POST')
+    if (req.method === 'DELETE') {
+      const body = parseBody(req)
+      const classCode =
+        normalizeClassCode(req.query.classCode || body.classCode) || 'WORLD2'
+      const nickname = normalizeNickname(req.query.nickname || body.nickname)
+
+      if (!nickname) {
+        res.status(400).json({ error: 'nickname is required' })
+        return
+      }
+
+      const key = boardKey(classCode)
+      const field = nickname.toLowerCase()
+      await redis.hdel(key, field)
+
+      const entries = await readEntries(redis, classCode)
+      res.status(200).json({ configured: true, classCode, entries, removed: nickname })
+      return
+    }
+
+    res.setHeader('Allow', 'GET, POST, DELETE')
     res.status(405).json({ error: 'Method not allowed' })
   } catch (err) {
     console.error('leaderboard api error', err)

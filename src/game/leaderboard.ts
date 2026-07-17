@@ -91,6 +91,70 @@ export function leaveBoard(): BoardProfile {
   })
 }
 
+/** Leave the board and delete only this nickname from local + shared class list. */
+export async function leaveAndRemoveFromBoard(): Promise<BoardLoadResult> {
+  const profile = loadBoardProfile()
+  const code = profile.classCode || DEFAULT_CLASS
+  const nickname = profile.nickname
+  const localEntries = nickname ? removeLocal(code, nickname) : filterLocal(code)
+  const left = leaveBoard()
+
+  if (!nickname) {
+    return {
+      entries: localEntries,
+      source: 'local',
+      configured: false,
+      error: 'No nickname to remove',
+    }
+  }
+
+  try {
+    const res = await fetch('/api/leaderboard', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classCode: code, nickname }),
+    })
+    const data = (await res.json().catch(() => ({}))) as {
+      entries?: BoardEntry[]
+      configured?: boolean
+      error?: string
+    }
+
+    if (res.status === 503 || data.configured === false) {
+      return {
+        entries: localEntries,
+        source: 'local',
+        configured: false,
+        error: data.error || 'Removed on this device. Shared board not configured.',
+      }
+    }
+
+    if (!res.ok) {
+      return {
+        entries: localEntries,
+        source: 'local',
+        configured: true,
+        error: data.error || 'Removed on this device. Could not reach shared board.',
+      }
+    }
+
+    const entries = Array.isArray(data.entries) ? data.entries : localEntries
+    return {
+      entries,
+      source: 'cloud',
+      configured: true,
+      error: `Removed ${left.nickname || nickname} from ${code}`,
+    }
+  } catch {
+    return {
+      entries: localEntries,
+      source: 'local',
+      configured: false,
+      error: 'Removed on this device. Offline — shared board not updated.',
+    }
+  }
+}
+
 export function rejoinBoard(nickname?: string, classCode?: string): BoardProfile {
   const current = loadBoardProfile()
   const name = normalizeNickname(nickname || current.nickname)
@@ -145,6 +209,16 @@ function upsertLocal(entry: Omit<BoardEntry, 'at'> & { at?: number }): BoardEntr
   } else {
     all.push(row)
   }
+  writeLocalAll(all)
+  return filterLocal(code)
+}
+
+function removeLocal(classCode: string, nickname: string): BoardEntry[] {
+  const code = normalizeClassCode(classCode)
+  const name = normalizeNickname(nickname).toLowerCase()
+  const all = readLocalAll().filter(
+    (e) => !(e.classCode.toUpperCase() === code && e.nickname.toLowerCase() === name),
+  )
   writeLocalAll(all)
   return filterLocal(code)
 }

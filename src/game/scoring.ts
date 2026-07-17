@@ -224,7 +224,8 @@ function dedupeWarmGreetingSlots(
   const exp = expectedFor(turn, sentence)
   const warmSmile = exp.emotion === 'smile' && exp.tone === 'friendly'
   const doubleExcited = exp.emotion === 'excited' && exp.tone === 'excited'
-  if (!warmSmile && !doubleExcited) return slots
+  const doubleSerious = exp.emotion === 'serious' && exp.tone === 'serious'
+  if (!warmSmile && !doubleExcited && !doubleSerious) return slots
   return slots.filter((s) => s !== 'emotion')
 }
 

@@ -9,7 +9,7 @@ export interface TrainQuestion {
   correctIndex: number
 }
 
-/** Class review: match definitions to MC delivery skills */
+/** Class review — mix of scenarios and short definitions */
 export const TRAIN_QUESTIONS: TrainQuestion[] = [
   {
     id: 't1',
@@ -27,13 +27,13 @@ export const TRAIN_QUESTIONS: TrainQuestion[] = [
   },
   {
     id: 't3',
-    prompt: 'Tone means…',
-    skill: 'tone',
+    prompt: 'A child in the front row looks scared. You want to calm them. Best volume?',
+    skill: 'volume',
     choices: [
-      'How loud you shout',
-      'The feeling color of your voice (serious, friendly…)',
-      'Where you stand on stage',
-      'How many fingers you show',
+      'Shout the next line',
+      'Soft, clear voice — still easy to hear',
+      'No voice — only mime',
+      'Talk only to the back row',
     ],
     correctIndex: 1,
   },
@@ -53,10 +53,15 @@ export const TRAIN_QUESTIONS: TrainQuestion[] = [
   },
   {
     id: 't6',
-    prompt: 'Two points: plastic hurts animals AND fills the ocean. Best gesture?',
-    skill: 'gesture',
-    choices: ['Two hands, one then the other', 'Only smile', 'Look at notes', 'Slouch'],
-    correctIndex: 0,
+    prompt: 'You are checking one hard place name on your card, then look up. Where should your eyes go next?',
+    skill: 'emotion',
+    choices: [
+      'Stay on your notes the whole time',
+      'Glance at notes, then look at the audience',
+      'Close your eyes and hope',
+      'Only watch one friend',
+    ],
+    correctIndex: 1,
   },
   {
     id: 't7',
@@ -67,10 +72,15 @@ export const TRAIN_QUESTIONS: TrainQuestion[] = [
   },
   {
     id: 't8',
-    prompt: 'A firm claim “We must stop wasting water” often uses…',
-    skill: 'gesture',
-    choices: ['Hand chop', 'Hands in pockets', 'Looking down', 'No movement ever'],
-    correctIndex: 0,
+    prompt: 'You are in a JOB speech. Which line belongs?',
+    skill: 'stress',
+    choices: [
+      'Plastic kills turtles in our river.',
+      'My dream job is a game designer.',
+      'Come with me. Japan is waiting.',
+      'We pick up trash on the street.',
+    ],
+    correctIndex: 1,
   },
   {
     id: 't9',
@@ -98,13 +108,13 @@ export const TRAIN_QUESTIONS: TrainQuestion[] = [
   },
   {
     id: 't11',
-    prompt: 'Back-of-the-room volume means…',
-    skill: 'volume',
+    prompt: 'You say “Japan” in a travel pitch. What should you do?',
+    skill: 'stress',
     choices: [
-      'Shout until it hurts',
-      'Speak clear and strong enough for the back row — not a yell',
-      'Always whisper',
-      'Only talk to one friend',
+      'Mumble it quickly',
+      'Say the place name clearly and pause a little',
+      'Replace it with “that country”',
+      'Shout every syllable',
     ],
     correctIndex: 1,
   },
@@ -122,13 +132,13 @@ export const TRAIN_QUESTIONS: TrainQuestion[] = [
   },
   {
     id: 't13',
-    prompt: 'Word stress means…',
-    skill: 'stress',
+    prompt: 'Comedy, heart, or fire — what is the same for all three style lines?',
+    skill: 'emotion',
     choices: [
-      'Say “the” and “a” louder',
-      'Make the key word stand out (must, river, Japan…)',
-      'Read every word the same',
-      'Stress only Vietnamese words',
+      'They are all wrong on purpose',
+      'They can all be correct — you choose the feeling',
+      'Only comedy ever works',
+      'You must shout all three',
     ],
     correctIndex: 1,
   },
@@ -158,7 +168,23 @@ export const TRAIN_QUESTIONS: TrainQuestion[] = [
   },
 ]
 
+function shuffleInPlace<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
 export function pickTrainSet(count = 5): TrainQuestion[] {
-  const shuffled = [...TRAIN_QUESTIONS].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, count)
+  const pool = shuffleInPlace([...TRAIN_QUESTIONS])
+  return pool.slice(0, count).map((q) => {
+    const indexed = q.choices.map((text, i) => ({ text, i }))
+    shuffleInPlace(indexed)
+    return {
+      ...q,
+      choices: indexed.map((c) => c.text),
+      correctIndex: indexed.findIndex((c) => c.i === q.correctIndex),
+    }
+  })
 }

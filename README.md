@@ -16,7 +16,8 @@ Open **http://127.0.0.1:5173/**
 - Curriculum chapters 1–7 + **5 Final Speeches** (full delivery)
 - Branching **skill tree** + **energy** (3, refill every 8h; **Get energy** quiz for +1)
 - **Stagebound Score** (accuracy + finals + efficiency)
-- **Class leaderboard** — shared live board for the whole class (Upstash Redis on Vercel)
+- **Class leaderboard** — shared live board for class code **WORLD2** (auto-enroll at intro; students can leave)
+- Group finales use **comedy / heart / fire** style choices (all correct, different crowd reactions)
 
 ## Shared class leaderboard (Vercel + free Redis)
 

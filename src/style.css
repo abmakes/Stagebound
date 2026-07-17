@@ -1461,6 +1461,31 @@ body:has(.run-screen) {
   transform: translateX(3px);
 }
 
+.line-choice.style-comedy,
+.line-choice.style-heart,
+.line-choice.style-fire {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.style-tag {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--teal, #1c6b6b);
+}
+
+.style-line {
+  font-weight: 700;
+}
+
+.style-hint {
+  margin: 0 0 0.35rem;
+}
+
 .line-choice.compact {
   padding: 0.7rem 0.85rem;
 }

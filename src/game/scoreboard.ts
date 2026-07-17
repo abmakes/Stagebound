@@ -1,54 +1,110 @@
 import type { MetaState } from '../data/types'
+import { ALL_CHAPTERS } from '../data/curriculum'
 import { FINALS } from '../data/finals'
 
 export interface StageboundScoreBreakdown {
   total: number
-  accuracyPct: number
+  /** Cleared chapters / all chapters */
+  progressPct: number
+  /** Best delivery quality on cleared chapters (0–1) */
+  qualityPct: number
+  /** Best quality on finals only (0–1; missing finals count as 0) */
   finalsPct: number
+  progressPoints: number
+  qualityPoints: number
+  finalsPoints: number
+  chaptersCleared: number
+  chaptersTotal: number
+  /** @deprecated aliases for older UI / leaderboard fields */
+  accuracyPct: number
   efficiencyPct: number
   accuracyPoints: number
-  finalsPoints: number
   efficiencyPoints: number
 }
 
-/** Stagebound Score 0–1000 */
+const PROGRESS_MAX = 450
+const QUALITY_MAX = 350
+const FINALS_MAX = 200
+
+function chapterBestRatio(meta: MetaState, chapterId: string): number | null {
+  const best = meta.bestScore[chapterId]
+  const max = meta.bestMaxScore[chapterId]
+  if (typeof best !== 'number' || typeof max !== 'number' || max <= 0) return null
+  return Math.max(0, Math.min(1, best / max))
+}
+
+/**
+ * Stagebound Score 0–1000 — rewards progress, delivery quality, and finals.
+ *
+ * - Progress (450): rise every time you clear a new chapter
+ * - Quality (350): how well you played cleared chapters, scaled by how far you are
+ * - Finals (200): best ratio on each of the 3 finals (uncleared = 0)
+ *
+ * Early perfect play cannot hit 750 before mid-game; finishing levels always moves the score.
+ */
 export function computeStageboundScore(meta: MetaState): StageboundScoreBreakdown {
-  const accuracyPct =
-    meta.choicesCorrect + meta.choicesWrong > 0
-      ? meta.choicesCorrect / (meta.choicesCorrect + meta.choicesWrong)
-      : 0
+  const chaptersTotal = ALL_CHAPTERS.length
+  const clearedIds = ALL_CHAPTERS.map((c) => c.id).filter((id) => meta.chaptersCleared.includes(id))
+  const chaptersCleared = clearedIds.length
+  const progressPct = chaptersTotal ? chaptersCleared / chaptersTotal : 0
+  const progressPoints = Math.round(progressPct * PROGRESS_MAX)
 
-  const finalsCleared = FINALS.filter((f) => meta.chaptersCleared.includes(f.id)).length
-  const finalsAvg =
-    meta.finalsMatchSum > 0 && meta.finalsMatchCount > 0
-      ? meta.finalsMatchSum / meta.finalsMatchCount
-      : finalsCleared > 0
-        ? 0.7
-        : 0
+  const clearedRatios = clearedIds
+    .map((id) => chapterBestRatio(meta, id))
+    .filter((r): r is number => r !== null)
+  const avgClearedQuality =
+    clearedRatios.length > 0 ? clearedRatios.reduce((a, b) => a + b, 0) / clearedRatios.length : 0
+  // Scale by progress so 1 perfect chapter cannot award full quality points
+  const qualityPct = avgClearedQuality * progressPct
+  const qualityPoints = Math.round(qualityPct * QUALITY_MAX)
 
-  // Efficiency: start 1.0, lose for failures, soft floor 0.2
-  const fails = meta.stageFails || 0
-  const attempts = meta.stageAttempts || 0
-  let efficiency = 1
-  efficiency -= Math.min(0.6, fails * 0.08)
-  if (attempts > 15) efficiency -= Math.min(0.2, (attempts - 15) * 0.02)
-  if (meta.chaptersCleared.includes('final-5-championship') && attempts <= 14) {
-    efficiency = Math.min(1, efficiency + 0.1)
-  }
-  efficiency = Math.max(0.2, Math.min(1, efficiency))
+  const finalRatios = FINALS.map((f) => {
+    if (!meta.chaptersCleared.includes(f.id)) return 0
+    return chapterBestRatio(meta, f.id) ?? 0
+  })
+  const finalsPct =
+    FINALS.length > 0 ? finalRatios.reduce((a, b) => a + b, 0) / FINALS.length : 0
+  const finalsPoints = Math.round(finalsPct * FINALS_MAX)
 
-  const accuracyPoints = Math.round(accuracyPct * 600)
-  const finalsPoints = Math.round(finalsAvg * 250)
-  const efficiencyPoints = Math.round(efficiency * 150)
-  const total = Math.min(1000, accuracyPoints + finalsPoints + efficiencyPoints)
+  const total = Math.min(1000, progressPoints + qualityPoints + finalsPoints)
 
   return {
     total,
-    accuracyPct,
-    finalsPct: finalsAvg,
-    efficiencyPct: efficiency,
-    accuracyPoints,
+    progressPct,
+    qualityPct: avgClearedQuality,
+    finalsPct,
+    progressPoints,
+    qualityPoints,
     finalsPoints,
-    efficiencyPoints,
+    chaptersCleared,
+    chaptersTotal,
+    accuracyPct: avgClearedQuality,
+    efficiencyPct: progressPct,
+    accuracyPoints: qualityPoints,
+    efficiencyPoints: progressPoints,
+  }
+}
+
+/** Apply score after a run; returns previous and new totals for UI. */
+export function refreshStageboundScore(meta: MetaState): {
+  meta: MetaState
+  previous: number
+  current: number
+  best: number
+  raised: boolean
+} {
+  const previous = meta.bestStageboundScore || 0
+  const current = computeStageboundScore(meta).total
+  const best = Math.max(previous, current)
+  const raised = current > previous
+  return {
+    meta: {
+      ...meta,
+      bestStageboundScore: best,
+    },
+    previous: meta.bestStageboundScore || 0,
+    current,
+    best,
+    raised,
   }
 }

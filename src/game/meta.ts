@@ -13,7 +13,7 @@ import { isFinalChapter, FINALS } from '../data/finals'
 import { PACKS } from '../data'
 import { getSkillNode, skillNodeState } from '../data/skillTree'
 import { SKILL_CODEX } from '../data/unlockOptions'
-import { computeStageboundScore } from './scoreboard'
+import { computeStageboundScore, refreshStageboundScore } from './scoreboard'
 
 const STORAGE_KEY = 'stagebound-meta-v3'
 
@@ -220,6 +220,12 @@ export function loadMeta(): MetaState {
     m = migrateSkillTiers(m)
     m.audienceCure = cureFromCleared(m.chaptersCleared)
     m = refreshEnergy(m)
+    // Snap inflated scores from the old ratio-only model down to the progress-based total
+    {
+      const current = computeStageboundScore(m).total
+      if ((m.bestStageboundScore || 0) > current) m.bestStageboundScore = current
+      else if (m.chaptersCleared.length > 0 && !m.bestStageboundScore) m.bestStageboundScore = current
+    }
     saveMeta(m)
     return m
   } catch {
@@ -312,19 +318,26 @@ export function applyRunResult(meta: MetaState, result: RunResult): MetaState {
     }
     if (result.leveledUp) next.playerLevel += 1
 
-    // Keep a live Stagebound Score so the class board can update after every clear
-    const score = computeStageboundScore(next)
-    if (score.total > next.bestStageboundScore) next.bestStageboundScore = score.total
-
     if (result.chapterId === 'final-5-championship') {
       next.gameComplete = true
-      result.newUnlocks.push(`Stagebound Score: ${score.total}`)
     }
   } else {
     next.stageFails += 1
     if (ch.pressureSkill && !next.unlockedSkills.includes(ch.pressureSkill)) {
       result.newUnlocks.push(`Hint: unlock ${SKILL_LABELS[ch.pressureSkill]} on the skill tree`)
     }
+  }
+
+  // Recalculate Stagebound Score after every run (progress + quality + finals)
+  const before = next.bestStageboundScore || 0
+  const refreshed = refreshStageboundScore(next)
+  Object.assign(next, refreshed.meta)
+  if (refreshed.current !== before || refreshed.raised) {
+    const arrow =
+      refreshed.current > before
+        ? `${before} → ${refreshed.current}`
+        : `${refreshed.current}`
+    result.newUnlocks.push(`Stagebound Score: ${arrow}`)
   }
 
   saveMeta(next)

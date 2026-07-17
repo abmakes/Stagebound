@@ -275,7 +275,7 @@ async function pushLiveScore(nickname = boardNickname): Promise<BoardLoadResult 
     nickname: name,
     classCode: boardClassCode,
     score,
-    accuracy: s.accuracyPct,
+    accuracy: s.qualityPct,
     finalsAvg: s.finalsPct,
     chaptersCleared: meta.chaptersCleared.length,
   })
@@ -779,8 +779,13 @@ function renderHub(): HTMLElement {
   }
   main.append(list)
 
-  if (meta.gameComplete || meta.bestStageboundScore > 0) {
-    const scoreBtn = el('button', 'btn primary big', `Your score · ${meta.bestStageboundScore || computeStageboundScore(meta).total}`)
+  if (meta.chaptersCleared.length > 0 || meta.bestStageboundScore > 0) {
+    const live = computeStageboundScore(meta)
+    const scoreBtn = el(
+      'button',
+      'btn primary big',
+      `Your score · ${live.total}${live.total < meta.bestStageboundScore ? ` (best ${meta.bestStageboundScore})` : ''}`,
+    )
     scoreBtn.type = 'button'
     scoreBtn.addEventListener('click', () => {
       screen = 'score'
@@ -1434,6 +1439,8 @@ function renderResult(): HTMLElement {
   grid.append(statCard('Skill points', `+${r.skillPointsGained}`))
   grid.append(statCard('Matches', `${r.matches}`))
   grid.append(statCard('Audience', `${r.audienceLeft}`))
+  const live = computeStageboundScore(meta)
+  grid.append(statCard('Stagebound', `${live.total}`))
   main.append(grid)
 
   const note = el('div', 'coach-note')
@@ -1522,6 +1529,14 @@ function renderResult(): HTMLElement {
     })
     actions.append(again)
   }
+  const toScore = el('button', 'btn secondary', 'View Stagebound Score')
+  toScore.type = 'button'
+  toScore.addEventListener('click', () => {
+    run = null
+    screen = 'score'
+    render()
+  })
+  actions.append(toScore)
   const skills = el('button', 'btn ghost', 'Skill tree')
   skills.type = 'button'
   skills.addEventListener('click', () => {
@@ -1536,22 +1551,41 @@ function renderResult(): HTMLElement {
 function renderScore(): HTMLElement {
   const main = el('main', 'score-screen')
   const s = computeStageboundScore(meta)
-  if (s.total > meta.bestStageboundScore) {
+  if (s.total > (meta.bestStageboundScore || 0)) {
     meta = { ...meta, bestStageboundScore: s.total }
-    // persist via save through a tiny apply
-    localStorage.setItem(
-      'stagebound-meta-v3',
-      JSON.stringify({ ...meta, bestStageboundScore: s.total }),
-    )
+    saveMeta(meta)
   }
   main.append(el('h1', '', 'Stagebound Score'))
-  main.append(el('p', 'lead', `Your score: ${s.total} / 1000`))
+  main.append(el('p', 'lead', `Current score: ${s.total} / 1000`))
+  main.append(
+    el(
+      'p',
+      'lead',
+      `Best: ${meta.bestStageboundScore} · Chapters cleared: ${s.chaptersCleared}/${s.chaptersTotal}`,
+    ),
+  )
   const grid = el('div', 'result-grid')
-  grid.append(statCard('Accuracy', `${Math.round(s.accuracyPct * 100)}% · ${s.accuracyPoints}`))
-  grid.append(statCard('Finals', `${Math.round(s.finalsPct * 100)}% · ${s.finalsPoints}`))
-  grid.append(statCard('Efficiency', `${Math.round(s.efficiencyPct * 100)}% · ${s.efficiencyPoints}`))
-  grid.append(statCard('Best', `${meta.bestStageboundScore}`))
+  grid.append(
+    statCard(
+      'Progress',
+      `${s.chaptersCleared}/${s.chaptersTotal} · ${s.progressPoints}`,
+    ),
+  )
+  grid.append(
+    statCard('Quality', `${Math.round(s.qualityPct * 100)}% · ${s.qualityPoints}`),
+  )
+  grid.append(
+    statCard('Finals', `${Math.round(s.finalsPct * 100)}% · ${s.finalsPoints}`),
+  )
+  grid.append(statCard('Total', `${s.total}`))
   main.append(grid)
+  main.append(
+    el(
+      'p',
+      'muted',
+      'Progress rises when you clear chapters. Quality rewards strong best scores. Finals add extra points for the three final speeches.',
+    ),
+  )
 
   const form = el('div', 'coach-note')
   form.append(el('strong', '', 'Class board'))
@@ -1729,9 +1763,9 @@ function asSpeechQuote(text: string): string {
 }
 
 function hubProfileScoreLine(m: MetaState, chapterId: string): string | null {
-  if (m.gameComplete || m.bestStageboundScore > 0) {
-    const score = m.bestStageboundScore || computeStageboundScore(m).total
-    return `Score · ${score}`
+  if (m.chaptersCleared.length > 0 || m.bestStageboundScore > 0) {
+    const live = computeStageboundScore(m)
+    return `Score · ${live.total}`
   }
   const best = m.bestScore[chapterId]
   const max = m.bestMaxScore[chapterId]

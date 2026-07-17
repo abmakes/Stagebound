@@ -43,13 +43,20 @@ function stressMatches(chosen: string | undefined, good: string[] | undefined): 
   return good.some((g) => normWord(g) === c)
 }
 
-/** Fill emotion from table; default missing stance to balanced (never “nothing”). */
-export function expectedFor(turn: TurnChallenge): DeliveryChoice {
-  return {
+/** Fill emotion from table; only default stance when the turn actually asks for it. */
+export function expectedFor(turn: TurnChallenge, sentence?: SentenceOption): DeliveryChoice {
+  const stanceAuthored =
+    turn.slots.includes('stance') ||
+    (turn.expected.stance !== undefined && turn.expected.stance !== null)
+  const base: DeliveryChoice = {
     ...turn.expected,
     emotion: turn.expected.emotion ?? EMOTION_BY_TURN[turn.id],
-    stance: turn.expected.stance ?? 'balanced',
+    stance: turn.expected.stance ?? (stanceAuthored ? 'balanced' : undefined),
   }
+  if (sentence?.styleDelivery) {
+    return { ...base, ...sentence.styleDelivery }
+  }
+  return base
 }
 
 function labelFor(slot: DeliverySlot, value: string | undefined): string {
@@ -200,9 +207,25 @@ export function slotIsAuthored(turn: TurnChallenge, slot: DeliverySlot): boolean
   if (exp !== undefined && exp !== null && exp !== '') return true
   if (slot === 'stressWord' && turn.sentences.some((s) => (s.goodStress?.length || 0) > 0)) return true
   if (slot === 'sayClearWord' && turn.sentences.some((s) => (s.clearWords?.length || 0) > 0)) return true
-  // Stance defaults via expectedFor → balanced when the chapter activates it
-  if (slot === 'stance') return true
+  // Do not invent a stance pick — only when the turn authors one
   return false
+}
+
+/**
+ * Warm greeting lock: smile + friendly means one mood.
+ * Ask tone OR face, not both, so stages stay shorter.
+ */
+function dedupeWarmGreetingSlots(
+  turn: TurnChallenge,
+  slots: DeliverySlot[],
+  sentence?: SentenceOption,
+): DeliverySlot[] {
+  if (!slots.includes('emotion') || !slots.includes('tone')) return slots
+  const exp = expectedFor(turn, sentence)
+  const warmSmile = exp.emotion === 'smile' && exp.tone === 'friendly'
+  const doubleExcited = exp.emotion === 'excited' && exp.tone === 'excited'
+  if (!warmSmile && !doubleExcited) return slots
+  return slots.filter((s) => s !== 'emotion')
 }
 
 /** Only score slots the chapter activates, the player unlocked, AND this turn authors. */
@@ -210,6 +233,7 @@ export function effectiveSlots(
   turn: TurnChallenge,
   activeSlots: DeliverySlot[],
   unlockedSkills: SkillId[],
+  sentence?: SentenceOption,
 ): DeliverySlot[] {
   const skillForSlot: Partial<Record<DeliverySlot, SkillId>> = {
     emotion: 'emotion',
@@ -222,11 +246,19 @@ export function effectiveSlots(
     sayClearWord: 'stress',
     eyes: 'emotion',
   }
-  return activeSlots.filter((slot) => {
+  const base = activeSlots.filter((slot) => {
     const sk = skillForSlot[slot]
     if (sk && !unlockedSkills.includes(sk)) return false
-    return slotIsAuthored(turn, slot)
+    if (slot === 'stance') {
+      const authored =
+        turn.slots.includes('stance') ||
+        (turn.expected.stance !== undefined && turn.expected.stance !== null) ||
+        !!(sentence?.styleDelivery?.stance)
+      if (!authored) return false
+    }
+    return slotIsAuthored(turn, slot) || !!(sentence?.styleDelivery && sentence.styleDelivery[slot])
   })
+  return dedupeWarmGreetingSlots(turn, base, sentence)
 }
 
 export function scoreTurn(
@@ -239,9 +271,9 @@ export function scoreTurn(
   const tips: string[] = []
   const strengths: string[] = []
   let points = 0
-  const expected = expectedFor(turn)
+  const expected = expectedFor(turn, sentence)
   const sentenceForSlots = sentence
-  const slots = effectiveSlots(turn, activeSlots, unlockedSkills).filter((slot) => {
+  const slots = effectiveSlots(turn, activeSlots, unlockedSkills, sentence).filter((slot) => {
     if (slot === 'stressWord') {
       return !!(sentenceForSlots.goodStress?.length || expected.stressWord)
     }
@@ -254,7 +286,15 @@ export function scoreTurn(
 
   if (sentence.isCorrect) {
     points += 1
-    strengths.push('You picked a line that fits this part of the speech.')
+    if (sentence.style === 'comedy') {
+      strengths.push('Comedy line — the crowd laughs with you.')
+    } else if (sentence.style === 'heart') {
+      strengths.push('Heart line — the crowd feels your compassion.')
+    } else if (sentence.style === 'fire') {
+      strengths.push('Fire line — the crowd feels your passion.')
+    } else {
+      strengths.push('You picked a line that fits this part of the speech.')
+    }
   } else {
     tips.push(sentence.tipIfWrong || 'Pick a line that fits this part of the speech.')
   }
@@ -327,6 +367,9 @@ export function scoreTurn(
   else if (sentence.isCorrect) audienceDelta = -5
   else audienceDelta = -8
   if (turn.beat === 'boss' && !ok) audienceDelta -= 3
+  if (ok && sentence.audienceFlavor === 'laugh') audienceDelta += 3
+  if (ok && sentence.audienceFlavor === 'compassion') audienceDelta += 2
+  if (ok && sentence.audienceFlavor === 'passion') audienceDelta += 3
 
   return {
     ok,

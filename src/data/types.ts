@@ -66,6 +66,11 @@ export interface SentenceOption {
   clearWords?: string[]
   isCorrect: boolean
   tipIfWrong?: string
+  /** Group-finale style pick — all three styles score as correct */
+  style?: 'comedy' | 'heart' | 'fire'
+  audienceFlavor?: 'laugh' | 'compassion' | 'passion'
+  /** Delivery answers that match this speaking intention */
+  styleDelivery?: DeliveryChoice
 }
 
 export type DeliverySlot = keyof DeliveryChoice
@@ -82,6 +87,8 @@ export interface TurnChallenge {
   coachTip: string
   successTip: string
   rubricBoost: RubricStat[]
+  /** When true, every correct-tagged sentence is a style choice (comedy/heart/fire) */
+  styleChoice?: boolean
 }
 
 export interface TopicPack {

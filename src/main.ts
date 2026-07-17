@@ -26,9 +26,12 @@ import { SKILL_EDGES, SKILL_NODES, getSkillNode, skillNodeState } from './data/s
 import { unlockedGestures, unlockedStances, codexIdsForSkill } from './data/unlockOptions'
 import { pickTrainSet, type TrainQuestion } from './data/training'
 import {
+  ensureBoardEnrollment,
+  leaveBoard,
   loadBoardProfile,
   loadBoardAsync,
   postToBoard,
+  rejoinBoard,
   saveBoardProfile,
   syncScoreIfJoined,
   type BoardEntry,
@@ -202,15 +205,38 @@ let nameDraft = ''
 /** Optional curriculum unit expand override (otherwise current stage's unit) */
 let hubExpandUnit: string | null = null
 
+// Existing saves: put named players on the board unless they left
+if (!boardJoined && !boardProfile.optedOut && meta.playerName && meta.playerName !== 'MC') {
+  const enrolled = ensureBoardEnrollment(meta.playerName, boardClassCode)
+  boardNickname = enrolled.nickname
+  boardClassCode = enrolled.classCode
+  boardJoined = enrolled.joined
+}
+
 function persistBoardIdentity(nickname: string, classCode: string, joined = true): void {
   boardNickname = nickname.trim().slice(0, 20)
   boardClassCode = (classCode.trim().toUpperCase() || 'WORLD2').slice(0, 32)
   boardJoined = joined && !!boardNickname
-  saveBoardProfile({
-    nickname: boardNickname,
-    classCode: boardClassCode,
-    joined: boardJoined,
-  })
+  if (joined) {
+    saveBoardProfile({
+      nickname: boardNickname,
+      classCode: boardClassCode,
+      joined: boardJoined,
+      optedOut: false,
+    })
+  } else {
+    const left = leaveBoard()
+    boardNickname = left.nickname
+    boardClassCode = left.classCode
+    boardJoined = false
+  }
+}
+
+function enrollOnBoard(name: string): void {
+  const profile = ensureBoardEnrollment(name, boardClassCode || 'WORLD2')
+  boardNickname = profile.nickname
+  boardClassCode = profile.classCode
+  boardJoined = profile.joined
 }
 
 function applyBoardResult(result: BoardLoadResult, okMessage?: string): void {
@@ -428,6 +454,7 @@ function renderIntro(): HTMLElement {
         return
       }
       meta = setPlayerName(meta, nameDraft)
+      enrollOnBoard(nameDraft)
       introStep = 2
       render()
     })
@@ -508,6 +535,7 @@ function renderIntro(): HTMLElement {
       return
     }
     meta = markIntroSeen(meta)
+    enrollOnBoard(meta.playerName || nameDraft || 'Friend')
     lessonChapterId = CHAPTERS[0].id
     screen = 'lesson'
     render()
@@ -521,6 +549,7 @@ function renderIntro(): HTMLElement {
     if (!meta.playerName || meta.playerName === 'MC') {
       meta = setPlayerName(meta, nameDraft || 'Friend')
     }
+    enrollOnBoard(meta.playerName || nameDraft || 'Friend')
     meta = markIntroSeen(meta)
     screen = 'hub'
     render()
@@ -1239,9 +1268,26 @@ function renderPickStep(state: RunState, turn: ReturnType<typeof currentTurn>): 
   const step = state.pickStep
   if (step === 'sentence') {
     const wrap = el('div', 'one-choices')
+    if (turn.styleChoice || turn.sentences.some((s) => s.style)) {
+      wrap.append(
+        el(
+          'p',
+          'muted style-hint',
+          'Pick your speaking style — comedy, heart, or fire. All three work; match your face and voice.',
+        ),
+      )
+    }
     for (const s of turn.sentences) {
-      const btn = el('button', 'line-choice', s.text)
+      const btn = el('button', `line-choice${s.style ? ` style-${s.style}` : ''}`)
       btn.type = 'button'
+      if (s.style) {
+        const label =
+          s.style === 'comedy' ? 'Comedy · laugh' : s.style === 'heart' ? 'Heart · compassion' : 'Fire · passion'
+        btn.append(el('span', 'style-tag', label))
+        btn.append(el('span', 'style-line', s.text))
+      } else {
+        btn.textContent = s.text
+      }
       btn.addEventListener('click', () => {
         if (!run) return
         run = selectSentence(run, s.id)
@@ -1361,7 +1407,9 @@ function optionsForSlot(slot: DeliverySlot): { id: string; label: string }[] {
 
   let correctId: string | undefined
   if (run) {
-    const exp = expectedFor(currentTurn(run))
+    const turn = currentTurn(run)
+    const sentence = turn.sentences.find((s) => s.id === run!.draft.sentenceId)
+    const exp = expectedFor(turn, sentence)
     correctId = exp[slot] as string | undefined
   }
   return pickCappedOptions(all, correctId, 5)
@@ -1408,7 +1456,7 @@ function renderResult(): HTMLElement {
           'p',
           'muted',
           lastBoardSyncNote ||
-            `Your Stagebound Score (${Math.max(live.total, meta.bestStageboundScore)}) syncs when you clear a chapter.`,
+            `On the board as ${boardNickname || meta.playerName} · ${boardClassCode}. Score ${Math.max(live.total, meta.bestStageboundScore)} syncs after every clear.`,
         ),
       )
       const view = el('button', 'btn secondary', 'View leaderboard')
@@ -1420,30 +1468,21 @@ function renderResult(): HTMLElement {
       boardNote.append(view)
     } else {
       boardNote.append(
-        el(
-          'p',
-          'muted',
-          'Join the class board so friends can see your progress after every chapter.',
-        ),
+        el('p', 'muted', 'You left the class board. Rejoin anytime to share progress with the class.'),
       )
-      const name = el('input', 'board-input') as HTMLInputElement
-      name.placeholder = 'Your name'
-      name.value = boardNickname || meta.playerName || ''
-      name.maxLength = 20
-      const code = el('input', 'board-input') as HTMLInputElement
-      code.placeholder = 'Class code e.g. World2'
-      code.value = boardClassCode
-      boardNote.append(name, code)
-      const join = el('button', 'btn primary', 'Join & post score')
-      join.type = 'button'
-      join.addEventListener('click', () => {
-        persistBoardIdentity(name.value || meta.playerName || 'MC', code.value || 'WORLD2', true)
+      const rejoin = el('button', 'btn secondary', 'Rejoin class board')
+      rejoin.type = 'button'
+      rejoin.addEventListener('click', () => {
+        const profile = rejoinBoard(meta.playerName || boardNickname || 'MC', boardClassCode)
+        boardNickname = profile.nickname
+        boardClassCode = profile.classCode
+        boardJoined = profile.joined
         void pushLiveScore(boardNickname).then(() => {
           run = null
           openBoard()
         })
       })
-      boardNote.append(join)
+      boardNote.append(rejoin)
     }
     main.append(boardNote)
   }
@@ -1515,12 +1554,14 @@ function renderScore(): HTMLElement {
   main.append(grid)
 
   const form = el('div', 'coach-note')
-  form.append(el('strong', '', boardJoined ? 'Update class board' : 'Join class board'))
+  form.append(el('strong', '', 'Class board'))
   form.append(
     el(
       'p',
       'muted',
-      'Enter your name and class code. Your score updates for the whole class after each chapter you clear.',
+      boardJoined
+        ? `On the board as ${boardNickname || meta.playerName} · ${boardClassCode}. Clears update the class automatically.`
+        : 'You left the class board. Rejoin to share your score with the class.',
     ),
   )
   const name = el('input', 'board-input') as HTMLInputElement
@@ -1531,10 +1572,13 @@ function renderScore(): HTMLElement {
   code.placeholder = 'Class code e.g. World2'
   code.value = boardClassCode
   form.append(name, code)
-  const post = el('button', 'btn primary big', boardJoined ? 'Update my score' : 'Post my score')
+  const post = el('button', 'btn primary big', boardJoined ? 'Update my score' : 'Rejoin & post score')
   post.type = 'button'
   post.addEventListener('click', () => {
-    persistBoardIdentity(name.value || meta.playerName || 'MC', code.value || 'WORLD2', true)
+    const profile = rejoinBoard(name.value || meta.playerName || 'MC', code.value || 'WORLD2')
+    boardNickname = profile.nickname
+    boardClassCode = profile.classCode
+    boardJoined = profile.joined
     post.disabled = true
     post.textContent = 'Posting…'
     void pushLiveScore(boardNickname).then(() => {
@@ -1593,24 +1637,39 @@ function renderBoard(): HTMLElement {
 
   if (!boardJoined) {
     const join = el('div', 'coach-note')
-    join.append(el('strong', '', 'Join so your clears count'))
-    join.append(el('p', 'muted', 'Same class code as your teacher. Score updates after every chapter win.'))
+    join.append(el('strong', '', 'You left the class board'))
+    join.append(el('p', 'muted', 'Rejoin anytime — same name, class code World2.'))
     const name = el('input', 'board-input') as HTMLInputElement
     name.placeholder = 'Your name'
     name.value = boardNickname || meta.playerName || ''
     name.maxLength = 20
     join.append(name)
-    const go = el('button', 'btn primary', 'Join class board')
+    const go = el('button', 'btn primary', 'Rejoin class board')
     go.type = 'button'
     go.addEventListener('click', () => {
-      persistBoardIdentity(name.value || meta.playerName || 'MC', boardClassCode, true)
+      const profile = rejoinBoard(name.value || meta.playerName || 'MC', boardClassCode)
+      boardNickname = profile.nickname
+      boardClassCode = profile.classCode
+      boardJoined = profile.joined
       void pushLiveScore(boardNickname).then(() => render())
       render()
     })
     join.append(go)
     main.append(join)
   } else {
-    main.append(el('p', 'muted', `Playing as ${boardNickname} · auto-updates on chapter clear`))
+    const status = el('div', 'coach-note')
+    status.append(
+      el('p', 'muted', `On the board as ${boardNickname} · ${boardClassCode} · auto-updates on chapter clear`),
+    )
+    const leave = el('button', 'btn ghost', 'Leave class board')
+    leave.type = 'button'
+    leave.addEventListener('click', () => {
+      persistBoardIdentity(boardNickname, boardClassCode, false)
+      boardStatus = 'You left the class board'
+      render()
+    })
+    status.append(leave)
+    main.append(status)
   }
 
   const entries = boardCache.length ? boardCache : []
@@ -1618,7 +1677,7 @@ function renderBoard(): HTMLElement {
   if (boardLoading && !entries.length) {
     list.append(el('p', 'lead', 'Loading scores…'))
   } else if (!entries.length) {
-    list.append(el('p', 'lead', 'No scores yet. Clear a chapter and join the board!'))
+    list.append(el('p', 'lead', 'No scores yet. Clear a chapter — you’re already on the board!'))
   } else {
     entries.forEach((e, i) => {
       const row = el('div', 'board-row')

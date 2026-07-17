@@ -28,6 +28,7 @@ export interface RunState {
   allTips: string[]
   statsHit: RunResult['strength'] extends string ? import('../data/types').RubricStat[] : never
   result: RunResult | null
+  unlockedSkills: MetaState['unlockedSkills']
 }
 
 const AUDIENCE_MAX = 100
@@ -36,6 +37,7 @@ function buildPickQueue(
   turn: TurnChallenge,
   activeSlots: DeliverySlot[],
   unlocked: MetaState['unlockedSkills'],
+  sentence?: import('../data/types').SentenceOption,
 ): PickStep[] {
   const order: DeliverySlot[] = [
     'emotion',
@@ -48,7 +50,7 @@ function buildPickQueue(
     'sayClearWord',
     'eyes',
   ]
-  const authored = effectiveSlots(turn, activeSlots, unlocked)
+  const authored = effectiveSlots(turn, activeSlots, unlocked, sentence)
   const steps: PickStep[] = ['sentence']
   for (const slot of order) {
     if (authored.includes(slot)) steps.push(slot)
@@ -92,6 +94,7 @@ export function startChapterRun(meta: MetaState, chapterId: string): RunState {
     allTips: [],
     statsHit: [],
     result: null,
+    unlockedSkills: meta.unlockedSkills,
   }
 }
 
@@ -113,12 +116,14 @@ export function audienceMood(state: RunState) {
 
 export function selectSentence(state: RunState, sentenceId: string): RunState {
   const turn = currentTurn(state)
+  const ch = getChapter(state.chapterId)
   const sentence = turn.sentences.find((s) => s.id === sentenceId)
-  const nextQueue = state.pickQueue
+  const nextQueue = buildPickQueue(turn, ch.activeSlots, state.unlockedSkills, sentence)
   const idx = nextQueue.indexOf('sentence')
   const nextStep = nextQueue[idx + 1] || 'confirm'
   return {
     ...state,
+    pickQueue: nextQueue,
     draft: {
       sentenceId,
       delivery: { ...state.draft.delivery, stressWord: undefined, sayClearWord: undefined },

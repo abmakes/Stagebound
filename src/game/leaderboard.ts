@@ -12,6 +12,8 @@ export interface BoardProfile {
   nickname: string
   classCode: string
   joined: boolean
+  /** True only after the student taps Leave — blocks auto-enroll. */
+  optedOut: boolean
 }
 
 export interface BoardLoadResult {
@@ -36,15 +38,18 @@ function normalizeNickname(raw: string): string {
 export function loadBoardProfile(): BoardProfile {
   try {
     const raw = localStorage.getItem(PROFILE_KEY)
-    if (!raw) return { nickname: '', classCode: DEFAULT_CLASS, joined: false }
+    if (!raw) return { nickname: '', classCode: DEFAULT_CLASS, joined: false, optedOut: false }
     const parsed = JSON.parse(raw) as Partial<BoardProfile>
+    const nickname = normalizeNickname(String(parsed.nickname || ''))
+    const optedOut = !!parsed.optedOut
     return {
-      nickname: normalizeNickname(String(parsed.nickname || '')),
+      nickname,
       classCode: normalizeClassCode(String(parsed.classCode || DEFAULT_CLASS)),
-      joined: !!parsed.joined && !!normalizeNickname(String(parsed.nickname || '')),
+      joined: !optedOut && !!parsed.joined && !!nickname,
+      optedOut,
     }
   } catch {
-    return { nickname: '', classCode: DEFAULT_CLASS, joined: false }
+    return { nickname: '', classCode: DEFAULT_CLASS, joined: false, optedOut: false }
   }
 }
 
@@ -54,10 +59,47 @@ export function saveBoardProfile(profile: Partial<BoardProfile>): BoardProfile {
     nickname: normalizeNickname(profile.nickname ?? current.nickname),
     classCode: normalizeClassCode(profile.classCode ?? current.classCode),
     joined: profile.joined ?? current.joined,
+    optedOut: profile.optedOut ?? current.optedOut,
   }
+  if (next.optedOut) next.joined = false
   if (!next.nickname) next.joined = false
   localStorage.setItem(PROFILE_KEY, JSON.stringify(next))
   return next
+}
+
+/** Put the student on the class board unless they previously left. */
+export function ensureBoardEnrollment(nickname: string, classCode = DEFAULT_CLASS): BoardProfile {
+  const current = loadBoardProfile()
+  if (current.optedOut) return current
+  const name = normalizeNickname(nickname) || current.nickname
+  if (!name) return current
+  return saveBoardProfile({
+    nickname: name,
+    classCode: classCode || current.classCode || DEFAULT_CLASS,
+    joined: true,
+    optedOut: false,
+  })
+}
+
+export function leaveBoard(): BoardProfile {
+  const current = loadBoardProfile()
+  return saveBoardProfile({
+    nickname: current.nickname,
+    classCode: current.classCode,
+    joined: false,
+    optedOut: true,
+  })
+}
+
+export function rejoinBoard(nickname?: string, classCode?: string): BoardProfile {
+  const current = loadBoardProfile()
+  const name = normalizeNickname(nickname || current.nickname)
+  return saveBoardProfile({
+    nickname: name,
+    classCode: classCode || current.classCode || DEFAULT_CLASS,
+    joined: !!name,
+    optedOut: false,
+  })
 }
 
 function readLocalAll(): BoardEntry[] {
@@ -171,7 +213,7 @@ export async function postToBoard(entry: PostPayload): Promise<BoardLoadResult> 
   }
 
   const localEntries = upsertLocal(payload)
-  saveBoardProfile({ nickname, classCode: code, joined: true })
+  saveBoardProfile({ nickname, classCode: code, joined: true, optedOut: false })
 
   try {
     const res = await fetch('/api/leaderboard', {

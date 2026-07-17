@@ -25,7 +25,15 @@ import {
 import { SKILL_EDGES, SKILL_NODES, getSkillNode, skillNodeState } from './data/skillTree'
 import { unlockedGestures, unlockedStances, codexIdsForSkill } from './data/unlockOptions'
 import { pickTrainSet, type TrainQuestion } from './data/training'
-import { loadBoard, postToBoard } from './game/leaderboard'
+import {
+  loadBoardProfile,
+  loadBoardAsync,
+  postToBoard,
+  saveBoardProfile,
+  syncScoreIfJoined,
+  type BoardEntry,
+  type BoardLoadResult,
+} from './game/leaderboard'
 import { computeStageboundScore } from './game/scoreboard'
 import {
   ENERGY_MAX,
@@ -175,8 +183,17 @@ let trainCorrect = 0
 let trainEnergyAwarded = false
 let trainOnMenu = false
 let selectedSkill: import('./data/types').SkillId | null = null
-let boardClassCode = 'HALONG-A2'
-let boardNickname = ''
+const boardProfile = loadBoardProfile()
+let boardClassCode = boardProfile.classCode
+let boardNickname = boardProfile.nickname || ''
+let boardJoined = boardProfile.joined
+let boardCache: BoardEntry[] = []
+let boardSource: BoardLoadResult['source'] = 'local'
+let boardConfigured = false
+let boardStatus = ''
+let boardLoading = false
+let boardNeedsRefresh = true
+let lastBoardSyncNote = ''
 /** Hub character card face */
 let hubCardFace: 'mc' | 'stats' = 'mc'
 /** Codex entries to highlight when opened from skill tree */
@@ -184,6 +201,93 @@ let codexFocusIds: string[] = []
 let nameDraft = ''
 /** Optional curriculum unit expand override (otherwise current stage's unit) */
 let hubExpandUnit: string | null = null
+
+function persistBoardIdentity(nickname: string, classCode: string, joined = true): void {
+  boardNickname = nickname.trim().slice(0, 20)
+  boardClassCode = (classCode.trim().toUpperCase() || 'HALONG-A2').slice(0, 32)
+  boardJoined = joined && !!boardNickname
+  saveBoardProfile({
+    nickname: boardNickname,
+    classCode: boardClassCode,
+    joined: boardJoined,
+  })
+}
+
+function applyBoardResult(result: BoardLoadResult, okMessage?: string): void {
+  boardCache = result.entries
+  boardSource = result.source
+  boardConfigured = result.configured
+  if (result.error) {
+    boardStatus = result.error
+  } else if (okMessage) {
+    boardStatus = okMessage
+  } else if (result.source === 'cloud') {
+    boardStatus = 'Live class board'
+  } else {
+    boardStatus = 'Scores on this device only'
+  }
+}
+
+async function refreshBoard(classCode = boardClassCode): Promise<void> {
+  boardLoading = true
+  boardStatus = 'Loading class board…'
+  const result = await loadBoardAsync(classCode)
+  applyBoardResult(result)
+  boardLoading = false
+  boardNeedsRefresh = false
+}
+
+async function pushLiveScore(nickname = boardNickname): Promise<BoardLoadResult | null> {
+  const s = computeStageboundScore(meta)
+  const score = Math.max(s.total, meta.bestStageboundScore)
+  if (score <= 0 && meta.chaptersCleared.length === 0) return null
+
+  const name = (nickname || meta.playerName || '').trim()
+  if (!name) return null
+
+  const result = await postToBoard({
+    nickname: name,
+    classCode: boardClassCode,
+    score,
+    accuracy: s.accuracyPct,
+    finalsAvg: s.finalsPct,
+    chaptersCleared: meta.chaptersCleared.length,
+  })
+  persistBoardIdentity(name, boardClassCode, true)
+  applyBoardResult(
+    result,
+    result.source === 'cloud' ? 'Score posted to the class board!' : undefined,
+  )
+  lastBoardSyncNote =
+    result.source === 'cloud'
+      ? `Board updated · ${score}`
+      : result.error || 'Saved on this device'
+  return result
+}
+
+async function autoSyncAfterWin(): Promise<void> {
+  if (!boardJoined && !(boardNickname || meta.playerName)) return
+  const s = computeStageboundScore(meta)
+  const result = await syncScoreIfJoined({
+    score: Math.max(s.total, meta.bestStageboundScore),
+    accuracy: s.accuracyPct,
+    finalsAvg: s.finalsPct,
+    chaptersCleared: meta.chaptersCleared.length,
+    fallbackName: boardNickname || meta.playerName,
+  })
+  if (!result) return
+  applyBoardResult(result)
+  lastBoardSyncNote =
+    result.source === 'cloud'
+      ? `Class board updated · ${Math.max(s.total, meta.bestStageboundScore)}`
+      : result.error || 'Score saved on this device'
+}
+
+function openBoard(): void {
+  screen = 'board'
+  boardNeedsRefresh = true
+  render()
+}
 
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -584,10 +688,7 @@ function renderHub(): HTMLElement {
   })
   const board = el('button', 'btn ghost tiny', 'Board')
   board.type = 'button'
-  board.addEventListener('click', () => {
-    screen = 'board'
-    render()
-  })
+  board.addEventListener('click', () => openBoard())
   nav.append(sk, cx, board)
   main.append(nav)
 
@@ -1103,8 +1204,10 @@ function renderRun(): HTMLElement {
       if (!run) return
       run = advanceAfterFeedback(run, meta)
       if (run.phase === 'finished' && run.result) {
-        meta = applyRunResult(meta, run.result)
+        const finished = run.result
+        meta = applyRunResult(meta, finished)
         screen = 'result'
+        if (finished.won) void autoSyncAfterWin().then(() => render())
       }
       render()
     })
@@ -1295,6 +1398,56 @@ function renderResult(): HTMLElement {
     main.append(u)
   }
 
+  if (r.won) {
+    const live = computeStageboundScore(meta)
+    const boardNote = el('div', 'coach-note board-sync-note')
+    boardNote.append(el('strong', '', 'Class board'))
+    if (boardJoined) {
+      boardNote.append(
+        el(
+          'p',
+          'muted',
+          lastBoardSyncNote ||
+            `Your Stagebound Score (${Math.max(live.total, meta.bestStageboundScore)}) syncs when you clear a chapter.`,
+        ),
+      )
+      const view = el('button', 'btn secondary', 'View leaderboard')
+      view.type = 'button'
+      view.addEventListener('click', () => {
+        run = null
+        openBoard()
+      })
+      boardNote.append(view)
+    } else {
+      boardNote.append(
+        el(
+          'p',
+          'muted',
+          'Join the class board so friends can see your progress after every chapter.',
+        ),
+      )
+      const name = el('input', 'board-input') as HTMLInputElement
+      name.placeholder = 'Your name'
+      name.value = boardNickname || meta.playerName || ''
+      name.maxLength = 20
+      const code = el('input', 'board-input') as HTMLInputElement
+      code.placeholder = 'Class code e.g. HALONG-A2'
+      code.value = boardClassCode
+      boardNote.append(name, code)
+      const join = el('button', 'btn primary', 'Join & post score')
+      join.type = 'button'
+      join.addEventListener('click', () => {
+        persistBoardIdentity(name.value || meta.playerName || 'MC', code.value || 'HALONG-A2', true)
+        void pushLiveScore(boardNickname).then(() => {
+          run = null
+          openBoard()
+        })
+      })
+      boardNote.append(join)
+    }
+    main.append(boardNote)
+  }
+
   if (!r.won) {
     main.append(
       el(
@@ -1362,41 +1515,40 @@ function renderScore(): HTMLElement {
   main.append(grid)
 
   const form = el('div', 'coach-note')
-  form.append(el('strong', '', 'Post to class board'))
-  form.append(el('p', 'muted', 'Enter your name and class code (teacher chooses the code).'))
+  form.append(el('strong', '', boardJoined ? 'Update class board' : 'Join class board'))
+  form.append(
+    el(
+      'p',
+      'muted',
+      'Enter your name and class code. Your score updates for the whole class after each chapter you clear.',
+    ),
+  )
   const name = el('input', 'board-input') as HTMLInputElement
   name.placeholder = 'Your name'
-  name.value = boardNickname
+  name.value = boardNickname || meta.playerName || ''
   name.maxLength = 20
   const code = el('input', 'board-input') as HTMLInputElement
   code.placeholder = 'Class code e.g. HALONG-A2'
   code.value = boardClassCode
   form.append(name, code)
-  const post = el('button', 'btn primary big', 'Post my score')
+  const post = el('button', 'btn primary big', boardJoined ? 'Update my score' : 'Post my score')
   post.type = 'button'
   post.addEventListener('click', () => {
-    boardNickname = name.value
-    boardClassCode = code.value || 'HALONG-A2'
-    postToBoard({
-      nickname: boardNickname,
-      classCode: boardClassCode,
-      score: Math.max(s.total, meta.bestStageboundScore),
-      accuracy: s.accuracyPct,
-      finalsAvg: s.finalsPct,
+    persistBoardIdentity(name.value || meta.playerName || 'MC', code.value || 'HALONG-A2', true)
+    post.disabled = true
+    post.textContent = 'Posting…'
+    void pushLiveScore(boardNickname).then(() => {
+      openBoard()
     })
-    screen = 'board'
-    render()
   })
   form.append(post)
+  if (boardStatus) form.append(el('p', 'muted', boardStatus))
   main.append(form)
 
   const actions = el('div', 'hub-actions stack')
   const board = el('button', 'btn secondary', 'View leaderboard')
   board.type = 'button'
-  board.addEventListener('click', () => {
-    screen = 'board'
-    render()
-  })
+  board.addEventListener('click', () => openBoard())
   const hub = el('button', 'btn ghost', 'Back to hub')
   hub.type = 'button'
   hub.addEventListener('click', () => {
@@ -1415,24 +1567,66 @@ function renderBoard(): HTMLElement {
   const code = el('input', 'board-input') as HTMLInputElement
   code.placeholder = 'Class code'
   code.value = boardClassCode
-  const load = el('button', 'btn secondary', 'Show')
+  const load = el('button', 'btn secondary', boardLoading ? 'Loading…' : 'Show')
   load.type = 'button'
+  load.disabled = boardLoading
   load.addEventListener('click', () => {
-    boardClassCode = code.value || 'HALONG-A2'
+    boardClassCode = code.value.trim().toUpperCase() || 'HALONG-A2'
+    saveBoardProfile({ classCode: boardClassCode, nickname: boardNickname, joined: boardJoined })
+    boardNeedsRefresh = true
+    void refreshBoard(boardClassCode).then(() => render())
     render()
   })
   codeRow.append(code, load)
   main.append(codeRow)
   main.append(el('p', 'lead', `Top scores for ${boardClassCode.toUpperCase()}`))
+  main.append(
+    el(
+      'p',
+      'muted',
+      boardStatus ||
+        (boardConfigured && boardSource === 'cloud'
+          ? 'Live class board'
+          : 'Scores on this device until the shared database is linked'),
+    ),
+  )
 
-  const entries = loadBoard(boardClassCode)
+  if (!boardJoined) {
+    const join = el('div', 'coach-note')
+    join.append(el('strong', '', 'Join so your clears count'))
+    join.append(el('p', 'muted', 'Same class code as your teacher. Score updates after every chapter win.'))
+    const name = el('input', 'board-input') as HTMLInputElement
+    name.placeholder = 'Your name'
+    name.value = boardNickname || meta.playerName || ''
+    name.maxLength = 20
+    join.append(name)
+    const go = el('button', 'btn primary', 'Join class board')
+    go.type = 'button'
+    go.addEventListener('click', () => {
+      persistBoardIdentity(name.value || meta.playerName || 'MC', boardClassCode, true)
+      void pushLiveScore(boardNickname).then(() => render())
+      render()
+    })
+    join.append(go)
+    main.append(join)
+  } else {
+    main.append(el('p', 'muted', `Playing as ${boardNickname} · auto-updates on chapter clear`))
+  }
+
+  const entries = boardCache.length ? boardCache : []
   const list = el('div', 'board-list')
-  if (!entries.length) {
-    list.append(el('p', 'lead', 'No scores yet. Finish Final 5 and post your name!'))
+  if (boardLoading && !entries.length) {
+    list.append(el('p', 'lead', 'Loading scores…'))
+  } else if (!entries.length) {
+    list.append(el('p', 'lead', 'No scores yet. Clear a chapter and join the board!'))
   } else {
     entries.forEach((e, i) => {
       const row = el('div', 'board-row')
-      row.innerHTML = `<span class="board-rank">${i + 1}</span><span class="board-name">${escapeHtml(e.nickname)}</span><span class="board-score">${e.score}</span>`
+      const cleared =
+        typeof e.chaptersCleared === 'number' && e.chaptersCleared > 0
+          ? ` · ${e.chaptersCleared} cleared`
+          : ''
+      row.innerHTML = `<span class="board-rank">${i + 1}</span><span class="board-name">${escapeHtml(e.nickname)}${cleared ? `<small class="board-meta">${cleared}</small>` : ''}</span><span class="board-score">${e.score}</span>`
       list.append(row)
     })
   }
@@ -1445,6 +1639,13 @@ function renderBoard(): HTMLElement {
     render()
   })
   main.append(back)
+
+  if (boardNeedsRefresh && !boardLoading) {
+    void refreshBoard(boardClassCode).then(() => {
+      if (screen === 'board') render()
+    })
+  }
+
   return main
 }
 

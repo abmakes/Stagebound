@@ -88,15 +88,15 @@ export const FINALS: ChapterDef[] = [
     id: 'final-5-championship',
     number: 10,
     title: 'Final 3 · Championship MC Night',
-    subtitle: 'Ha Long Bay championship — clear this to post your score.',
+    subtitle: 'Ha Long Bay championship — clear this to lock your Stagebound Score.',
     requires: [...CORE_REQ],
     activeSlots: FULL_SLOTS,
     lesson: {
       headline: 'Championship night',
-      body: 'One full MC set. Finish this to unlock your Stagebound Score and the class leaderboard.',
+      body: 'One full MC set. Finish this to lock in your Stagebound Score — it already syncs to the class board after every chapter you clear.',
       examples: [
         { label: 'Everything', detail: 'All unlocked tools count' },
-        { label: 'Post score', detail: 'Type your name after you win' },
+        { label: 'Post score', detail: 'Join once with your name + class code; wins keep updating the board' },
       ],
     },
     packId: 'job',

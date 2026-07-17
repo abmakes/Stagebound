@@ -438,6 +438,23 @@ body:has(.run-screen) {
   color: var(--bg-mid, #1c4048);
 }
 
+.board-name {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.board-meta {
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: var(--muted, #6b5b4a);
+}
+
+.board-sync-note .board-input {
+  max-width: 20rem;
+}
+
 .score-screen h1,
 .board-screen h1 {
   color: var(--paper);

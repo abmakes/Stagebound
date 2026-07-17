@@ -312,10 +312,12 @@ export function applyRunResult(meta: MetaState, result: RunResult): MetaState {
     }
     if (result.leveledUp) next.playerLevel += 1
 
+    // Keep a live Stagebound Score so the class board can update after every clear
+    const score = computeStageboundScore(next)
+    if (score.total > next.bestStageboundScore) next.bestStageboundScore = score.total
+
     if (result.chapterId === 'final-5-championship') {
       next.gameComplete = true
-      const score = computeStageboundScore(next)
-      if (score.total > next.bestStageboundScore) next.bestStageboundScore = score.total
       result.newUnlocks.push(`Stagebound Score: ${score.total}`)
     }
   } else {

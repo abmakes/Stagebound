@@ -660,20 +660,28 @@ function renderCutscene(): HTMLElement {
 function renderHub(): HTMLElement {
   const main = el('main', 'hub')
 
-  const energyBar = el('div', 'hub-status-bar')
-  energyBar.append(el('span', 'energy-note', `⚡ ${meta.energy} energy`))
-  if (meta.energy < 1) {
-    const getEnergy = el('button', 'btn primary tiny', 'Get energy')
-    getEnergy.type = 'button'
-    getEnergy.addEventListener('click', () => openEnergyScreen())
-    energyBar.append(getEnergy)
-  } else if (meta.energy < ENERGY_MAX) {
-    const getEnergy = el('button', 'btn ghost tiny', 'Quiz for +1 ⚡')
-    getEnergy.type = 'button'
-    getEnergy.addEventListener('click', () => openEnergyScreen())
-    energyBar.append(getEnergy)
+  // Energy actions only when you need them — top bar already shows ⚡ count
+  if (meta.energy < ENERGY_MAX) {
+    const energyBar = el('div', 'hub-status-bar')
+    if (meta.energy < 1) {
+      energyBar.append(el('span', 'energy-note', 'Out of energy'))
+      const getEnergy = el('button', 'btn primary tiny', 'Get energy')
+      getEnergy.type = 'button'
+      getEnergy.addEventListener('click', () => openEnergyScreen())
+      energyBar.append(getEnergy)
+    } else {
+      energyBar.append(el('span', 'energy-note', 'Need more energy?'))
+      const getEnergy = el('button', 'btn ghost tiny', 'Quiz for +1 ⚡')
+      getEnergy.type = 'button'
+      getEnergy.addEventListener('click', () => openEnergyScreen())
+      energyBar.append(getEnergy)
+    }
+    main.append(energyBar)
   }
-  main.append(energyBar)
+
+  const cleared = meta.chaptersCleared.length
+  const total = ALL_CHAPTERS.length
+  const pct = total > 0 ? Math.round((cleared / total) * 100) : 0
 
   const hero = el('section', 'theater-banner face-mc')
   const artCol = el('div', 'hero-art')
@@ -682,25 +690,10 @@ function renderHub(): HTMLElement {
   art.alt = 'Your MC'
   artCol.append(art)
 
-  const cleared = meta.chaptersCleared.length
-  const total = ALL_CHAPTERS.length
-  const pct = total > 0 ? Math.round((cleared / total) * 100) : 0
-  const progress = el('div', 'hero-progress')
-  progress.append(el('p', 'hero-progress-label', `Tour · ${cleared}/${total}`))
-  const track = el('div', 'hero-progress-track')
-  const fill = el('div', 'hero-progress-fill')
-  fill.style.width = `${pct}%`
-  track.append(fill)
-  progress.append(track)
-  artCol.append(progress)
-
   const copy = el('div', 'hero-copy')
-  copy.append(el('p', 'eyebrow', 'Ha Long Tour'))
-  copy.append(el('h1', '', mcDisplayName(meta)))
-  copy.append(el('p', 'hero-blurb', 'Ha Long is suffering from boredom. Bring the crowd back to life.'))
-
-  const cardBtns = el('div', 'hero-card-btns')
-  const change = el('button', 'btn ghost tiny', 'Change')
+  const topRow = el('div', 'hero-top-row')
+  topRow.append(el('p', 'eyebrow', 'Ha Long Tour'))
+  const change = el('button', 'btn ghost tiny hero-change', 'Change')
   change.type = 'button'
   change.addEventListener('click', () => {
     introStep = 0
@@ -709,8 +702,25 @@ function renderHub(): HTMLElement {
     screen = 'intro'
     render()
   })
-  cardBtns.append(change)
-  copy.append(cardBtns)
+  topRow.append(change)
+  copy.append(topRow)
+  copy.append(el('h1', '', mcDisplayName(meta)))
+  copy.append(
+    el('p', 'hero-blurb', 'Bring the crowd back to life — one stage at a time.'),
+  )
+
+  const progress = el('div', 'hero-progress')
+  const progressHead = el('div', 'hero-progress-head')
+  progressHead.append(el('span', '', 'Tour progress'))
+  progressHead.append(el('span', 'hero-progress-count', `${cleared}/${total}`))
+  progress.append(progressHead)
+  const track = el('div', 'hero-progress-track')
+  const fill = el('div', 'hero-progress-fill')
+  fill.style.width = `${pct}%`
+  track.append(fill)
+  progress.append(track)
+  copy.append(progress)
+
   hero.append(artCol, copy)
   main.append(hero)
 

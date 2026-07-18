@@ -358,7 +358,10 @@ function finishCutscene(): void {
 function render(): void {
   meta = refreshEnergy(meta)
   app.innerHTML = ''
-  const root = el('div', 'app-shell')
+  const root = el(
+    'div',
+    screen === 'cutscene' ? 'app-shell cutscene-shell' : 'app-shell',
+  )
   if (screen !== 'intro' && screen !== 'cutscene') root.append(renderHeader())
   if (screen === 'intro') root.append(renderIntro())
   else if (screen === 'cutscene' && activeCutsceneId) root.append(renderCutscene())
@@ -569,29 +572,32 @@ function renderCutscene(): HTMLElement {
   const id = activeCutsceneId!
   const def = getCutscene(id)
   const slide = def.slides[Math.min(cutsceneStep, def.slides.length - 1)]
-  const main = el('main', 'cutscene-screen')
+  const layout = slide.layout === 'narrow' ? 'narrow' : 'cover'
+  const main = el('main', `cutscene-screen layout-${layout}`)
 
   const stage = el('section', 'cutscene-stage')
-  const frame = el('div', 'cutscene-frame')
-  const img = el('img', `cutscene-art ${slide.motion}`) as HTMLImageElement
+  const frame = el('div', `cutscene-frame layout-${layout}`)
+  const img = el('img', `cutscene-art layout-${layout} ${slide.motion}`) as HTMLImageElement
   img.src = slide.image
   img.alt = slide.title
   frame.append(img)
   stage.append(frame)
 
-  const box = el('div', 'cutscene-box pop-in')
-  box.append(el('p', 'eyebrow', `${def.label} ${cutsceneStep + 1} / ${def.slides.length}`))
-  box.append(el('h1', '', slide.title))
-  box.append(el('p', 'lead', slide.body))
+  const caption = el('div', 'cutscene-caption pop-in')
+  caption.append(el('p', 'eyebrow', `${def.label} ${cutsceneStep + 1} / ${def.slides.length}`))
+  caption.append(el('h1', '', slide.title))
+  caption.append(el('p', 'lead', slide.body))
+  stage.append(caption)
 
-  const dots = el('div', 'intro-dots')
+  const footer = el('div', 'cutscene-footer')
+  const dots = el('div', 'intro-dots cutscene-dots')
   for (let i = 0; i < def.slides.length; i++) {
     dots.append(el('span', `dot ${i === cutsceneStep ? 'on' : ''}`, ''))
   }
-  box.append(dots)
+  footer.append(dots)
 
-  const actions = el('div', 'hub-actions')
-  const back = el('button', 'btn ghost', 'Back')
+  const actions = el('div', 'cutscene-actions')
+  const back = el('button', 'btn ghost cutscene-btn', 'Back')
   back.type = 'button'
   back.addEventListener('click', () => {
     if (cutsceneStep > 0) {
@@ -613,8 +619,8 @@ function renderCutscene(): HTMLElement {
   const isLast = cutsceneStep >= def.slides.length - 1
   const next = el(
     'button',
-    'btn primary big',
-    id === 'ending' && isLast ? 'See Stagebound Score' : 'Continue',
+    'btn primary cutscene-btn',
+    id === 'ending' && isLast ? 'See Score' : 'Continue',
   )
   next.type = 'button'
   next.addEventListener('click', () => {
@@ -626,10 +632,10 @@ function renderCutscene(): HTMLElement {
     finishCutscene()
   })
   actions.append(next)
-  box.append(actions)
+  footer.append(actions)
 
   if (def.allowSkip) {
-    const skip = el('button', 'intro-skip', id === 'intro' ? 'Skip intro' : 'Skip')
+    const skip = el('button', 'cutscene-skip', id === 'intro' ? 'Skip intro' : 'Skip')
     skip.type = 'button'
     skip.addEventListener('click', () => {
       if (id === 'intro') {
@@ -646,10 +652,10 @@ function renderCutscene(): HTMLElement {
       }
       finishCutscene()
     })
-    box.append(skip)
+    footer.append(skip)
   }
 
-  stage.append(box)
+  stage.append(footer)
   main.append(stage)
   return main
 }

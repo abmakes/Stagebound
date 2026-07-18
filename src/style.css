@@ -57,39 +57,76 @@ body:has(.run-screen) {
 }
 
 /* ===== VISUAL-NOVEL CUTSCENES ===== */
+.app-shell.cutscene-shell {
+  max-width: none;
+  padding: 0;
+  margin: 0;
+}
+
+body:has(.cutscene-screen) {
+  background: #0a1214;
+}
+
 .cutscene-screen {
-  display: grid;
-  gap: 0;
-  min-height: calc(100vh - 1rem);
+  display: block;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .cutscene-stage {
   position: relative;
   overflow: hidden;
-  border-radius: 20px;
-  min-height: min(62vh, 520px);
-  height: min(68vh, 560px);
-  background: #132f34;
-  box-shadow: 0 16px 36px var(--shadow);
+  border-radius: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  background: #0a1214;
+  box-shadow: none;
 }
 
 .cutscene-frame {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cutscene-art {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scale(1.12);
+  object-position: center center;
+  transform: scale(1.08);
   transform-origin: center center;
   will-change: transform;
 }
 
+/* Landscape crowd art: ~30% width, centered */
+.cutscene-art.layout-narrow {
+  width: 30%;
+  max-width: 220px;
+  height: auto;
+  max-height: 55vh;
+  object-fit: contain;
+  transform: scale(1);
+  border-radius: 8px;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.55));
+}
+
+.cutscene-frame.layout-narrow {
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(42, 70, 78, 0.55), transparent 60%),
+    #0a1214;
+}
+
 .cutscene-art.ken-zoom-in {
   animation: ken-zoom-in 11s ease-out forwards;
+}
+
+.cutscene-art.layout-narrow.ken-zoom-in {
+  animation: ken-narrow-zoom 10s ease-out forwards;
 }
 
 .cutscene-art.ken-pan-left {
@@ -102,75 +139,151 @@ body:has(.run-screen) {
 
 @keyframes ken-zoom-in {
   from {
-    transform: scale(1.05);
+    transform: scale(1.02);
   }
   to {
-    transform: scale(1.18);
+    transform: scale(1.12);
+  }
+}
+
+@keyframes ken-narrow-zoom {
+  from {
+    transform: scale(0.96);
+  }
+  to {
+    transform: scale(1.04);
   }
 }
 
 @keyframes ken-pan-left {
   from {
-    transform: scale(1.14) translateX(3%);
+    transform: scale(1.1) translateX(2.5%);
   }
   to {
-    transform: scale(1.14) translateX(-3%);
+    transform: scale(1.1) translateX(-2.5%);
   }
 }
 
 @keyframes ken-pan-right {
   from {
-    transform: scale(1.14) translateX(-3%);
+    transform: scale(1.1) translateX(-2.5%);
   }
   to {
-    transform: scale(1.14) translateX(3%);
+    transform: scale(1.1) translateX(2.5%);
   }
 }
 
-.cutscene-box {
+/* Top subtitle overlay — no card, soft black scrim */
+.cutscene-caption {
   position: absolute;
-  left: 0.65rem;
-  right: 0.65rem;
-  bottom: 0.65rem;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 3;
-  background: rgba(244, 230, 207, 0.94);
-  border-radius: 16px;
-  padding: 0.95rem 1rem 1.05rem;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
-  max-height: 48%;
-  overflow: auto;
+  padding: 1.1rem 1rem 1.35rem;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.72) 0%,
+    rgba(0, 0, 0, 0.45) 70%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  pointer-events: none;
+  text-align: center;
 }
 
-.cutscene-box .eyebrow {
-  margin: 0 0 0.2rem;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+.cutscene-caption .eyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #6a5540;
+  color: rgba(255, 255, 255, 0.65);
 }
 
-.cutscene-box h1 {
-  margin: 0 0 0.35rem;
+.cutscene-caption h1 {
+  margin: 0 0 0.4rem;
   font-family: 'Fraunces', Georgia, serif;
-  font-size: clamp(1.2rem, 4.5vw, 1.55rem);
+  font-size: clamp(1.15rem, 5vw, 1.55rem);
+  font-weight: 700;
   line-height: 1.2;
-  color: var(--ink);
+  color: #fff;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
 }
 
-.cutscene-box .lead {
-  margin: 0 0 0.65rem;
-  color: #3d3428;
-  font-size: 0.95rem;
+.cutscene-caption .lead {
+  margin: 0 auto;
+  max-width: 36rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: clamp(0.88rem, 3.4vw, 1rem);
+  font-weight: 600;
   line-height: 1.45;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
 }
 
-.cutscene-box .hub-actions {
-  margin-top: 0.35rem;
+.cutscene-footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 1.25rem 1rem max(1.1rem, env(safe-area-inset-bottom));
+  background: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.65) 0%,
+    rgba(0, 0, 0, 0.28) 55%,
+    rgba(0, 0, 0, 0) 100%
+  );
 }
 
-.cutscene-box .intro-skip {
-  margin-top: 0.55rem;
+.cutscene-dots {
+  margin: 0;
+}
+
+.cutscene-dots .dot {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.cutscene-dots .dot.on {
+  background: var(--amber);
+}
+
+.cutscene-actions {
+  display: flex;
+  gap: 0.55rem;
+  width: min(100%, 360px);
+  justify-content: center;
+}
+
+.cutscene-btn {
+  flex: 1;
+  min-height: 2.6rem;
+}
+
+.cutscene-btn.ghost {
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.cutscene-skip {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+}
+
+.cutscene-skip:hover {
+  color: #fff;
 }
 
 .intro-stage {
@@ -1677,26 +1790,23 @@ body:has(.run-screen) {
   .play-card,
   .coach-note,
   .intro-copy,
-  .cutscene-stage,
-  .cutscene-box,
   .tree-detail,
   .unlocks,
   .stat-card {
     border-radius: 14px;
   }
 
-  .cutscene-stage {
-    min-height: min(58vh, 480px);
-    height: min(64vh, 520px);
-    border-radius: 12px;
+  .cutscene-caption {
+    padding: 0.95rem 0.75rem 1.2rem;
   }
 
-  .cutscene-box {
-    left: 0.4rem;
-    right: 0.4rem;
-    bottom: 0.4rem;
-    padding: 0.85rem 0.85rem 0.95rem;
-    max-height: 52%;
+  .cutscene-art.layout-narrow {
+    width: 32%;
+    max-width: 200px;
+  }
+
+  .cutscene-footer {
+    padding: 1rem 0.75rem max(0.9rem, env(safe-area-inset-bottom));
   }
 
   .run-screen .theater.theater-bleed,

@@ -7,6 +7,8 @@ export interface CutsceneSlide {
   title: string
   body: string
   motion: KenBurnsMotion
+  /** cover = full-bleed portrait; narrow = landscape art ~30% width centered */
+  layout?: 'cover' | 'narrow'
 }
 
 export interface CutsceneDef {
@@ -46,6 +48,7 @@ export const CUTSCENES: Record<CutsceneId, CutsceneDef> = {
         title: 'The crowd is fading',
         body: 'An old man, a lady, and a young girl start drained by boredom. Match your delivery and lift them — bored, then curious, then engaged. Cheer unlocks as you cure each person, chapter by chapter.',
         motion: 'ken-zoom-in',
+        layout: 'narrow',
       },
     ],
   },

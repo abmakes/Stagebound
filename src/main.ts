@@ -10,7 +10,7 @@ import type {
   ToneId,
   VolumeId,
 } from './data/types'
-import { CHAPTERS, CURRICULUM_UNITS, SKILL_LABELS, getChapter, unitForChapter } from './data/curriculum'
+import { CHAPTERS, CURRICULUM_UNITS, ALL_CHAPTERS, SKILL_LABELS, getChapter, unitForChapter } from './data/curriculum'
 import {
   EMOTION_LABELS,
   GESTURE_LABELS,
@@ -20,7 +20,6 @@ import {
   EYES_LABELS,
   STANCE_LABELS,
   CODEX,
-  RUBRIC_LABELS,
 } from './data/codex'
 import { SKILL_EDGES, SKILL_NODES, getSkillNode, skillNodeState } from './data/skillTree'
 import { unlockedGestures, unlockedStances, codexIdsForSkill } from './data/unlockOptions'
@@ -200,8 +199,6 @@ let boardStatus = ''
 let boardLoading = false
 let boardNeedsRefresh = true
 let lastBoardSyncNote = ''
-/** Hub character card face */
-let hubCardFace: 'mc' | 'stats' = 'mc'
 /** Codex entries to highlight when opened from skill tree */
 let codexFocusIds: string[] = []
 let nameDraft = ''
@@ -678,44 +675,29 @@ function renderHub(): HTMLElement {
   }
   main.append(energyBar)
 
-  const hero = el('section', `theater-banner ${hubCardFace === 'stats' ? 'face-stats' : 'face-mc'}`)
+  const hero = el('section', 'theater-banner face-mc')
   const artCol = el('div', 'hero-art')
   const art = el('img', 'hero-player') as HTMLImageElement
   art.src = playerSrc(meta.playerAvatar)
   art.alt = 'Your MC'
   artCol.append(art)
-  const scoreLine = hubProfileScoreLine(meta, currentChapter(meta).id)
-  if (scoreLine) artCol.append(el('p', 'hero-score', scoreLine))
+
+  const cleared = meta.chaptersCleared.length
+  const total = ALL_CHAPTERS.length
+  const pct = total > 0 ? Math.round((cleared / total) * 100) : 0
+  const progress = el('div', 'hero-progress')
+  progress.append(el('p', 'hero-progress-label', `Tour · ${cleared}/${total}`))
+  const track = el('div', 'hero-progress-track')
+  const fill = el('div', 'hero-progress-fill')
+  fill.style.width = `${pct}%`
+  track.append(fill)
+  progress.append(track)
+  artCol.append(progress)
 
   const copy = el('div', 'hero-copy')
-  if (hubCardFace === 'mc') {
-    copy.append(el('p', 'eyebrow', 'Ha Long Tour'))
-    copy.append(el('h1', '', mcDisplayName(meta)))
-    copy.append(el('p', 'hero-blurb', 'Ha Long is suffering from boredom. Bring the crowd back to life.'))
-  } else {
-    copy.append(el('p', 'eyebrow', 'Voice stats'))
-    copy.append(el('h1', '', mcDisplayName(meta)))
-    const stats = el('div', 'hero-stats')
-    for (const [key, label] of Object.entries(RUBRIC_LABELS)) {
-      const k = key as keyof typeof RUBRIC_LABELS
-      const row = el('div', 'stat-row')
-      row.append(el('span', '', label))
-      const bar = el('div', 'stat-bar')
-      const fill = el('div', 'stat-fill')
-      fill.style.width = `${(meta.stats[k] / 5) * 100}%`
-      bar.append(fill)
-      row.append(bar)
-      stats.append(row)
-    }
-    copy.append(stats)
-    copy.append(
-      el(
-        'p',
-        'hero-blurb stats-hint',
-        'Grow these by matching turns well, then clearing chapters.',
-      ),
-    )
-  }
+  copy.append(el('p', 'eyebrow', 'Ha Long Tour'))
+  copy.append(el('h1', '', mcDisplayName(meta)))
+  copy.append(el('p', 'hero-blurb', 'Ha Long is suffering from boredom. Bring the crowd back to life.'))
 
   const cardBtns = el('div', 'hero-card-btns')
   const change = el('button', 'btn ghost tiny', 'Change')
@@ -727,13 +709,7 @@ function renderHub(): HTMLElement {
     screen = 'intro'
     render()
   })
-  const flip = el('button', 'btn ghost tiny', hubCardFace === 'mc' ? 'View stats' : 'View MC')
-  flip.type = 'button'
-  flip.addEventListener('click', () => {
-    hubCardFace = hubCardFace === 'mc' ? 'stats' : 'mc'
-    render()
-  })
-  cardBtns.append(change, flip)
+  cardBtns.append(change)
   copy.append(cardBtns)
   hero.append(artCol, copy)
   main.append(hero)
@@ -1094,7 +1070,6 @@ function renderSkills(): HTMLElement {
     if (confirm('Reset all progress?')) {
       meta = resetMeta()
       introStep = 0
-      hubCardFace = 'mc'
       hubExpandUnit = null
       screen = 'intro'
       lessonChapterId = CHAPTERS[0].id
@@ -1892,21 +1867,6 @@ function asSpeechQuote(text: string): string {
   return `“${t}”`
 }
 
-function hubProfileScoreLine(m: MetaState, chapterId: string): string | null {
-  if (m.chaptersCleared.length > 0 || m.bestStageboundScore > 0) {
-    const live = computeStageboundScore(m)
-    return `Score · ${live.total}`
-  }
-  const best = m.bestScore[chapterId]
-  const max = m.bestMaxScore[chapterId]
-  if (typeof best === 'number' && typeof max === 'number' && max > 0) {
-    return `Best · ${best}/${max}`
-  }
-  if (typeof best === 'number') return `Best · ${best}`
-  return null
-}
-
-/** 1–3 stars from best ratio; ▶ current; · locked/uncleared */
 function chapterStarFlag(m: MetaState, chapterId: string, cleared: boolean, current: boolean): string {
   const best = m.bestScore[chapterId]
   const max = m.bestMaxScore[chapterId]

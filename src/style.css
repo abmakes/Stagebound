@@ -862,13 +862,33 @@ body:has(.cutscene-screen) {
   min-width: 0;
 }
 
-.hero-score {
-  margin: 0;
+.hero-progress {
+  width: 100%;
+  max-width: 120px;
+}
+
+.hero-progress-label {
+  margin: 0 0 0.25rem;
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
   color: var(--amber);
   line-height: 1.2;
+}
+
+.hero-progress-track {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(244, 230, 207, 0.22);
+  overflow: hidden;
+}
+
+.hero-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--teal), var(--amber));
+  min-width: 0;
+  transition: width 0.25s ease;
 }
 
 .hero-copy {
@@ -898,33 +918,11 @@ body:has(.cutscene-screen) {
   line-height: 1.35;
 }
 
-.hero-blurb.stats-hint {
-  margin-top: 0.55rem !important;
-  margin-bottom: 0 !important;
-  color: var(--ink-soft);
-  font-size: 0.8rem !important;
-}
-
 .hero-card-btns {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
   margin-top: 0.55rem;
-}
-
-.hero-stats {
-  display: grid;
-  gap: 0.35rem;
-  margin: 0.4rem 0 0.5rem;
-}
-
-.hero-stats .stat-row {
-  color: var(--paper);
-  font-size: 0.72rem;
-}
-
-.theater-banner.face-stats .hero-player {
-  max-width: 88px;
 }
 
 .hint-line {

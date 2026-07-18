@@ -1614,7 +1614,7 @@ function renderResult(): HTMLElement {
       if (r.won) {
         run = null
         if (
-          r.chapterId === 'ch2-find-voice' &&
+          r.chapterId === 'ch5-river-master' &&
           justClearedChapter &&
           !meta.seenThawCutscene
         ) {

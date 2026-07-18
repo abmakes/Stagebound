@@ -164,7 +164,7 @@ export interface MetaState {
   pendingLessonChapterId: string | null
   /** First-time storyboard intro already shown */
   seenIntro: boolean
-  /** Mid-story thaw cutscene after clearing chapter 2 */
+  /** Mid-story thaw cutscene after clearing Save the River (stage 5 / tour mid-point) */
   seenThawCutscene: boolean
   /** Ending cutscene after Final Speeches */
   seenEndingCutscene: boolean

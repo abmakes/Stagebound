@@ -682,6 +682,7 @@ function renderHub(): HTMLElement {
   const cleared = meta.chaptersCleared.length
   const total = ALL_CHAPTERS.length
   const pct = total > 0 ? Math.round((cleared / total) * 100) : 0
+  const liveScore = computeStageboundScore(meta).total
 
   const hero = el('section', 'theater-banner face-mc')
   const artCol = el('div', 'hero-art')
@@ -705,6 +706,7 @@ function renderHub(): HTMLElement {
   topRow.append(change)
   copy.append(topRow)
   copy.append(el('h1', '', mcDisplayName(meta)))
+  copy.append(el('p', 'hero-score', `Score · ${Math.max(liveScore, meta.bestStageboundScore)}`))
   copy.append(
     el('p', 'hero-blurb', 'Bring the crowd back to life — one stage at a time.'),
   )

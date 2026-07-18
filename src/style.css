@@ -832,7 +832,7 @@ body:has(.cutscene-screen) {
 
 .theater-banner {
   display: grid;
-  grid-template-columns: minmax(100px, 34%) 1fr;
+  grid-template-columns: minmax(130px, 42%) 1fr;
   gap: 0.9rem 1rem;
   align-items: center;
   background: linear-gradient(155deg, #2f6a74 0%, #1c4a52 55%, #163d44 100%);
@@ -845,7 +845,7 @@ body:has(.cutscene-screen) {
 
 .hero-player {
   width: 100%;
-  max-width: 140px;
+  max-width: 180px;
   height: auto;
   border-radius: 14px;
   display: block;
@@ -897,6 +897,14 @@ body:has(.cutscene-screen) {
   font-size: clamp(1.25rem, 5vw, 1.7rem);
   line-height: 1.15;
   overflow-wrap: anywhere;
+}
+
+.hero-score {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--amber);
+  line-height: 1.2;
 }
 
 .hero-copy p {
@@ -1847,14 +1855,14 @@ body:has(.cutscene-screen) {
   }
 
   .theater-banner {
-    grid-template-columns: minmax(88px, 32%) 1fr;
+    grid-template-columns: minmax(120px, 40%) 1fr;
     gap: 0.7rem 0.85rem;
     padding: 0.8rem 0.85rem;
     align-items: center;
   }
 
   .hero-player {
-    max-width: 112px;
+    max-width: 160px;
   }
 
   .hero-blurb {

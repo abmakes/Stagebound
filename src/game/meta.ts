@@ -84,6 +84,8 @@ export function defaultMeta(): MetaState {
     lastReflection: null,
     pendingLessonChapterId: CHAPTERS[0].id,
     seenIntro: false,
+    seenThawCutscene: false,
+    seenEndingCutscene: false,
     choicesCorrect: 0,
     choicesWrong: 0,
     quizCorrect: 0,
@@ -100,6 +102,18 @@ export function defaultMeta(): MetaState {
 
 export function markIntroSeen(meta: MetaState): MetaState {
   const m = { ...meta, seenIntro: true }
+  saveMeta(m)
+  return m
+}
+
+export function markThawCutsceneSeen(meta: MetaState): MetaState {
+  const m = { ...meta, seenThawCutscene: true }
+  saveMeta(m)
+  return m
+}
+
+export function markEndingCutsceneSeen(meta: MetaState): MetaState {
+  const m = { ...meta, seenEndingCutscene: true }
   saveMeta(m)
   return m
 }
@@ -215,6 +229,8 @@ export function loadMeta(): MetaState {
       bestScore: parsed.bestScore || {},
       bestMaxScore: parsed.bestMaxScore || {},
       gameComplete: !!parsed.gameComplete,
+      seenThawCutscene: !!parsed.seenThawCutscene,
+      seenEndingCutscene: !!parsed.seenEndingCutscene,
       audienceCure: cureFromCleared(parsed.chaptersCleared || []),
     }
     m = migrateSkillTiers(m)

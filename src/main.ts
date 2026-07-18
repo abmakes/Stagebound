@@ -39,6 +39,7 @@ import {
   type BoardLoadResult,
 } from './game/leaderboard'
 import { computeStageboundScore } from './game/scoreboard'
+import { getCutscene, type CutsceneId } from './game/cutscenes'
 import {
   ENERGY_MAX,
   addEnergy,
@@ -49,7 +50,9 @@ import {
   dismissLesson,
   isAudienceCured,
   loadMeta,
+  markEndingCutsceneSeen,
   markIntroSeen,
+  markThawCutsceneSeen,
   mcDisplayName,
   recordQuizResult,
   refreshEnergy,
@@ -75,27 +78,23 @@ import {
   type RunState,
 } from './game/runEngine'
 
-type Screen = 'intro' | 'hub' | 'lesson' | 'skills' | 'train' | 'codex' | 'run' | 'result' | 'board' | 'score'
+type Screen =
+  | 'intro'
+  | 'cutscene'
+  | 'hub'
+  | 'lesson'
+  | 'skills'
+  | 'train'
+  | 'codex'
+  | 'run'
+  | 'result'
+  | 'board'
+  | 'score'
 
 const AUDIENCE_ORDER: AudienceWho[] = ['oldman', 'woman', 'girl']
 
-const INTRO_PANELS = [
-  {
-    title: 'You have been chosen',
-    body: 'Ha Long is suffering from boredom. Only the best public speaker can bring this crowd back before we lose them for good. So you have been chosen as the master of ceremonies — the MC.',
-    visual: 'ranger' as const,
-  },
-  {
-    title: 'The crowd is fading',
-    body: 'An old man, a lady, and a young girl start drained by boredom. Match your delivery and lift them — bored, then curious, then engaged. Cheer unlocks as you cure each person, chapter by chapter.',
-    visual: 'crowd' as const,
-  },
-  {
-    title: 'Choose your path · Manage energy',
-    body: 'Unlock skills on a branching tree — a few tools at a time. You get 3 energy every 8 hours. Train with class quizzes for extra energy.',
-    visual: 'progress' as const,
-  },
-]
+/** Intro steps: 0 avatar, 1 name, 2 skills tip (VN story is a separate cutscene) */
+const INTRO_SKILLS_STEP = 2
 
 const ART = {
   player: {
@@ -181,6 +180,9 @@ let screen: Screen = meta.seenIntro
 let lessonChapterId = meta.pendingLessonChapterId || CHAPTERS[0].id
 let run: RunState | null = null
 let introStep = 0
+let activeCutsceneId: CutsceneId | null = null
+let cutsceneStep = 0
+let cutsceneReturnScreen: Screen = 'hub'
 let trainQuiz: TrainQuestion[] = []
 let trainIndex = 0
 let trainCorrect = 0
@@ -327,12 +329,39 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node
 }
 
+function startCutscene(id: CutsceneId, returnScreen: Screen): void {
+  activeCutsceneId = id
+  cutsceneStep = 0
+  cutsceneReturnScreen = returnScreen
+  if (id === 'thaw') meta = markThawCutsceneSeen(meta)
+  if (id === 'ending') meta = markEndingCutsceneSeen(meta)
+  screen = 'cutscene'
+  render()
+}
+
+function finishCutscene(): void {
+  const id = activeCutsceneId
+  activeCutsceneId = null
+  cutsceneStep = 0
+  if (id === 'intro') {
+    introStep = INTRO_SKILLS_STEP
+    screen = 'intro'
+    render()
+    return
+  }
+  const next = cutsceneReturnScreen
+  cutsceneReturnScreen = 'hub'
+  screen = next
+  render()
+}
+
 function render(): void {
   meta = refreshEnergy(meta)
   app.innerHTML = ''
   const root = el('div', 'app-shell')
-  if (screen !== 'intro') root.append(renderHeader())
+  if (screen !== 'intro' && screen !== 'cutscene') root.append(renderHeader())
   if (screen === 'intro') root.append(renderIntro())
+  else if (screen === 'cutscene' && activeCutsceneId) root.append(renderCutscene())
   else if (screen === 'hub') root.append(renderHub())
   else if (screen === 'lesson') root.append(renderLesson())
   else if (screen === 'skills') root.append(renderSkills())
@@ -365,7 +394,6 @@ function renderHeader(): HTMLElement {
 
 function renderIntro(): HTMLElement {
   const main = el('main', 'intro-screen')
-  const totalIntroSteps = INTRO_PANELS.length + 2 // avatar + name + story
 
   // Step 0: choose boy or girl
   if (introStep === 0) {
@@ -409,7 +437,7 @@ function renderIntro(): HTMLElement {
     return main
   }
 
-  // Step 1: enter name
+  // Step 1: enter name → then intro cutscene
   if (introStep === 1) {
     const stage = el('section', 'intro-stage visual-pick')
     stage.append(el('div', 'curtain left', ''))
@@ -456,8 +484,7 @@ function renderIntro(): HTMLElement {
       }
       meta = setPlayerName(meta, nameDraft)
       enrollOnBoard(nameDraft)
-      introStep = 2
-      render()
+      startCutscene('intro', 'intro')
     })
     actions.append(back, next)
     copy.append(actions)
@@ -466,82 +493,59 @@ function renderIntro(): HTMLElement {
     return main
   }
 
-  const panelIndex = introStep - 2
-  const panel = INTRO_PANELS[panelIndex]
-  const stage = el('section', `intro-stage visual-${panel.visual}`)
+  // Step 2: skills / energy tip after intro cutscene
+  const stage = el('section', 'intro-stage visual-progress')
   stage.append(el('div', 'curtain left', ''))
   stage.append(el('div', 'curtain right', ''))
   stage.append(el('div', 'intro-spotlight', ''))
-
   const art = el('div', 'intro-art')
-  if (panel.visual === 'ranger') {
-    const wrap = el('div', 'intro-player-wrap')
-    const img = el('img', 'intro-player float-in') as HTMLImageElement
-    img.src = playerSrc(meta.playerAvatar)
-    img.alt = 'MC'
-    wrap.append(img)
-    wrap.append(el('div', 'speech-bubble at-feet pop-in', 'I can do this…'))
-    art.append(wrap)
-  } else if (panel.visual === 'crowd') {
-    art.append(el('p', 'crowd-label', 'Boredom has them…'))
-    const group = el('img', 'intro-afflicted-group float-in') as HTMLImageElement
-    group.src = '/art/afflicted_group.png'
-    group.alt = 'Ha Long crowd drained by boredom'
-    art.append(group)
-  } else {
-    const strip = el('div', 'intro-progress-strip')
-    const steps = ['Face', 'Tone', 'Gesture', 'Stance']
-    steps.forEach((label, i) => {
-      const card = el('div', `prog-chip slide-up delay-${i}`)
-      card.append(el('span', 'prog-num', `${i + 1}`))
-      card.append(el('span', '', label))
-      strip.append(card)
-      if (i < steps.length - 1) strip.append(el('span', 'prog-arrow', '→'))
-    })
-    art.append(strip)
-    const mini = el('img', 'intro-player-small float-in') as HTMLImageElement
-    mini.src = playerSrc(meta.playerAvatar)
-    mini.alt = 'You'
-    art.append(mini)
-  }
+  const strip = el('div', 'intro-progress-strip')
+  const steps = ['Face', 'Tone', 'Gesture', 'Stance']
+  steps.forEach((label, i) => {
+    const card = el('div', `prog-chip slide-up delay-${i}`)
+    card.append(el('span', 'prog-num', `${i + 1}`))
+    card.append(el('span', '', label))
+    strip.append(card)
+    if (i < steps.length - 1) strip.append(el('span', 'prog-arrow', '→'))
+  })
+  art.append(strip)
+  const mini = el('img', 'intro-player-small float-in') as HTMLImageElement
+  mini.src = playerSrc(meta.playerAvatar)
+  mini.alt = 'You'
+  art.append(mini)
   stage.append(art)
 
   const copy = el('div', 'intro-copy pop-in')
-  copy.append(el('p', 'eyebrow', `Story ${panelIndex + 1} / ${INTRO_PANELS.length}`))
-  copy.append(el('h1', '', panel.title))
-  copy.append(el('p', 'lead', panel.body))
-
-  const dots = el('div', 'intro-dots')
-  for (let i = 0; i < totalIntroSteps; i++) {
-    dots.append(el('span', `dot ${i === introStep ? 'on' : ''}`, ''))
-  }
-  copy.append(dots)
+  copy.append(el('p', 'eyebrow', 'How to play'))
+  copy.append(el('h1', '', 'Choose your path · Manage energy'))
+  copy.append(
+    el(
+      'p',
+      'lead',
+      'Unlock skills on a branching tree — a few tools at a time. You get 3 energy every 8 hours. Train with class quizzes for extra energy.',
+    ),
+  )
 
   const actions = el('div', 'hub-actions')
   const back = el('button', 'btn ghost', 'Back')
   back.type = 'button'
   back.addEventListener('click', () => {
-    introStep -= 1
+    activeCutsceneId = 'intro'
+    cutsceneStep = getCutscene('intro').slides.length - 1
+    cutsceneReturnScreen = 'intro'
+    screen = 'cutscene'
     render()
   })
-  actions.append(back)
-
-  const isLast = panelIndex >= INTRO_PANELS.length - 1
-  const next = el('button', 'btn primary big', isLast ? 'Start practicing' : 'Continue')
+  const next = el('button', 'btn primary big', 'Start practicing')
   next.type = 'button'
   next.addEventListener('click', () => {
-    if (!isLast) {
-      introStep += 1
-      render()
-      return
-    }
     meta = markIntroSeen(meta)
     enrollOnBoard(meta.playerName || nameDraft || 'Friend')
     lessonChapterId = CHAPTERS[0].id
     screen = 'lesson'
     render()
   })
-  actions.append(next)
+  actions.append(back, next)
   copy.append(actions)
 
   const skip = el('button', 'intro-skip', 'Skip intro')
@@ -558,6 +562,95 @@ function renderIntro(): HTMLElement {
   copy.append(skip)
 
   main.append(stage, copy)
+  return main
+}
+
+function renderCutscene(): HTMLElement {
+  const id = activeCutsceneId!
+  const def = getCutscene(id)
+  const slide = def.slides[Math.min(cutsceneStep, def.slides.length - 1)]
+  const main = el('main', 'cutscene-screen')
+
+  const stage = el('section', 'cutscene-stage')
+  const frame = el('div', 'cutscene-frame')
+  const img = el('img', `cutscene-art ${slide.motion}`) as HTMLImageElement
+  img.src = slide.image
+  img.alt = slide.title
+  frame.append(img)
+  stage.append(frame)
+
+  const box = el('div', 'cutscene-box pop-in')
+  box.append(el('p', 'eyebrow', `${def.label} ${cutsceneStep + 1} / ${def.slides.length}`))
+  box.append(el('h1', '', slide.title))
+  box.append(el('p', 'lead', slide.body))
+
+  const dots = el('div', 'intro-dots')
+  for (let i = 0; i < def.slides.length; i++) {
+    dots.append(el('span', `dot ${i === cutsceneStep ? 'on' : ''}`, ''))
+  }
+  box.append(dots)
+
+  const actions = el('div', 'hub-actions')
+  const back = el('button', 'btn ghost', 'Back')
+  back.type = 'button'
+  back.addEventListener('click', () => {
+    if (cutsceneStep > 0) {
+      cutsceneStep -= 1
+      render()
+      return
+    }
+    if (id === 'intro') {
+      activeCutsceneId = null
+      introStep = 1
+      screen = 'intro'
+      render()
+      return
+    }
+    finishCutscene()
+  })
+  actions.append(back)
+
+  const isLast = cutsceneStep >= def.slides.length - 1
+  const next = el(
+    'button',
+    'btn primary big',
+    id === 'ending' && isLast ? 'See Stagebound Score' : 'Continue',
+  )
+  next.type = 'button'
+  next.addEventListener('click', () => {
+    if (!isLast) {
+      cutsceneStep += 1
+      render()
+      return
+    }
+    finishCutscene()
+  })
+  actions.append(next)
+  box.append(actions)
+
+  if (def.allowSkip) {
+    const skip = el('button', 'intro-skip', id === 'intro' ? 'Skip intro' : 'Skip')
+    skip.type = 'button'
+    skip.addEventListener('click', () => {
+      if (id === 'intro') {
+        if (!meta.playerName || meta.playerName === 'MC') {
+          meta = setPlayerName(meta, nameDraft || 'Friend')
+        }
+        enrollOnBoard(meta.playerName || nameDraft || 'Friend')
+        meta = markIntroSeen(meta)
+        activeCutsceneId = null
+        cutsceneStep = 0
+        screen = 'hub'
+        render()
+        return
+      }
+      finishCutscene()
+    })
+    box.append(skip)
+  }
+
+  stage.append(box)
+  main.append(stage)
   return main
 }
 
@@ -1506,11 +1599,17 @@ function renderResult(): HTMLElement {
   }
 
   const actions = el('div', 'hub-actions stack')
+  const justClearedChapter = r.won && r.newUnlocks.some((u) => u.startsWith('Chapter cleared:'))
+
   if (r.won && r.chapterId === 'final-5-championship') {
     const see = el('button', 'btn primary big', 'See Stagebound Score')
     see.type = 'button'
     see.addEventListener('click', () => {
       run = null
+      if (justClearedChapter && !meta.seenEndingCutscene) {
+        startCutscene('ending', 'score')
+        return
+      }
       screen = 'score'
       render()
     })
@@ -1520,8 +1619,16 @@ function renderResult(): HTMLElement {
     again.type = 'button'
     again.addEventListener('click', () => {
       if (r.won) {
-        screen = 'hub'
         run = null
+        if (
+          r.chapterId === 'ch2-find-voice' &&
+          justClearedChapter &&
+          !meta.seenThawCutscene
+        ) {
+          startCutscene('thaw', 'hub')
+          return
+        }
+        screen = 'hub'
       } else {
         lessonChapterId = r.chapterId
         screen = 'lesson'
@@ -1534,6 +1641,15 @@ function renderResult(): HTMLElement {
   toScore.type = 'button'
   toScore.addEventListener('click', () => {
     run = null
+    if (
+      r.won &&
+      r.chapterId === 'final-5-championship' &&
+      justClearedChapter &&
+      !meta.seenEndingCutscene
+    ) {
+      startCutscene('ending', 'score')
+      return
+    }
     screen = 'score'
     render()
   })

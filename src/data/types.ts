@@ -164,6 +164,10 @@ export interface MetaState {
   pendingLessonChapterId: string | null
   /** First-time storyboard intro already shown */
   seenIntro: boolean
+  /** Mid-story thaw cutscene after clearing chapter 2 */
+  seenThawCutscene: boolean
+  /** Ending cutscene after Final Speeches */
+  seenEndingCutscene: boolean
   /** Lifetime delivery choice tallies for Stagebound Score */
   choicesCorrect: number
   choicesWrong: number

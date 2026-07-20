@@ -1196,8 +1196,8 @@ function renderCodex(): HTMLElement {
     const focused = codexFocusIds.includes(entry.id)
     const card = el('article', `codex-card ${unlocked ? 'on' : 'off'} ${focused ? 'focus' : ''}`)
     card.id = `codex-${entry.id}`
-    card.append(el('p', 'cat', entry.category))
-    card.append(el('h3', '', unlocked ? entry.name : '???'))
+    const head = el('div', 'codex-card-head')
+    head.append(el('p', 'cat', entry.category))
     if (unlocked) {
       const lang = codexLangById[entry.id] || 'en'
       const toggle = el('div', 'codex-lang-toggle')
@@ -1214,8 +1214,12 @@ function renderCodex(): HTMLElement {
         render()
       })
       toggle.append(engBtn, viBtn)
-      card.append(toggle)
-
+      head.append(toggle)
+    }
+    card.append(head)
+    card.append(el('h3', '', unlocked ? entry.name : '???'))
+    if (unlocked) {
+      const lang = codexLangById[entry.id] || 'en'
       const desc = el('p', 'codex-when')
       desc.textContent = lang === 'vi' ? entry.whenVi : entry.when
       card.append(desc)

@@ -1380,6 +1380,14 @@ body:has(.cutscene-screen) {
   margin-bottom: 1rem;
 }
 
+.codex-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.15rem;
+}
+
 .codex-card .cat {
   margin: 0;
   font-size: 0.72rem;
@@ -1389,10 +1397,17 @@ body:has(.cutscene-screen) {
   color: var(--bg2);
 }
 
+.codex-card h3 {
+  margin: 0.15rem 0 0.45rem;
+  padding-right: 0;
+  line-height: 1.25;
+}
+
 .codex-lang-toggle {
   display: inline-flex;
+  flex-shrink: 0;
   gap: 0;
-  margin: 0.35rem 0 0.45rem;
+  margin: 0;
   border-radius: 999px;
   overflow: hidden;
   border: 1.5px solid rgba(26, 44, 48, 0.2);
@@ -1403,9 +1418,9 @@ body:has(.cutscene-screen) {
   appearance: none;
   border: none;
   margin: 0;
-  padding: 0.28rem 0.65rem;
+  padding: 0.22rem 0.55rem;
   font: inherit;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   cursor: pointer;

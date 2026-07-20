@@ -105,6 +105,8 @@ export interface CodexEntry {
   id: string
   name: string
   when: string
+  /** Vietnamese description (ENG name/example stay English) */
+  whenVi: string
   example: string
   category: 'gesture' | 'voice' | 'pace' | 'body' | 'eyes' | 'emotion'
 }

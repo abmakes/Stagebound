@@ -1389,6 +1389,47 @@ body:has(.cutscene-screen) {
   color: var(--bg2);
 }
 
+.codex-lang-toggle {
+  display: inline-flex;
+  gap: 0;
+  margin: 0.35rem 0 0.45rem;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1.5px solid rgba(26, 44, 48, 0.2);
+  background: rgba(26, 44, 48, 0.06);
+}
+
+.codex-lang-btn {
+  appearance: none;
+  border: none;
+  margin: 0;
+  padding: 0.28rem 0.65rem;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  color: var(--ink-soft);
+  background: transparent;
+  line-height: 1.2;
+}
+
+.codex-lang-btn.on {
+  background: var(--amber);
+  color: var(--ink);
+}
+
+.codex-lang-btn:not(.on):hover {
+  background: rgba(233, 160, 69, 0.2);
+  color: var(--ink);
+}
+
+.codex-when {
+  margin: 0;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
 .codex-card .example {
   margin: 0.45rem 0 0;
   font-family: 'Fraunces', Georgia, serif;

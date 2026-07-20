@@ -201,6 +201,8 @@ let boardNeedsRefresh = true
 let lastBoardSyncNote = ''
 /** Codex entries to highlight when opened from skill tree */
 let codexFocusIds: string[] = []
+/** Per-card Codex language for descriptions (default English) */
+const codexLangById: Record<string, 'en' | 'vi'> = {}
 let nameDraft = ''
 /** Optional curriculum unit expand override (otherwise current stage's unit) */
 let hubExpandUnit: string | null = null
@@ -1197,7 +1199,27 @@ function renderCodex(): HTMLElement {
     card.append(el('p', 'cat', entry.category))
     card.append(el('h3', '', unlocked ? entry.name : '???'))
     if (unlocked) {
-      card.append(el('p', '', entry.when))
+      const lang = codexLangById[entry.id] || 'en'
+      const toggle = el('div', 'codex-lang-toggle')
+      const engBtn = el('button', `codex-lang-btn ${lang === 'en' ? 'on' : ''}`, 'ENG')
+      engBtn.type = 'button'
+      engBtn.addEventListener('click', () => {
+        codexLangById[entry.id] = 'en'
+        render()
+      })
+      const viBtn = el('button', `codex-lang-btn ${lang === 'vi' ? 'on' : ''}`, 'VN')
+      viBtn.type = 'button'
+      viBtn.addEventListener('click', () => {
+        codexLangById[entry.id] = 'vi'
+        render()
+      })
+      toggle.append(engBtn, viBtn)
+      card.append(toggle)
+
+      const desc = el('p', 'codex-when')
+      desc.textContent = lang === 'vi' ? entry.whenVi : entry.when
+      card.append(desc)
+
       const example = el('p', 'example')
       example.textContent = asSpeechQuote(entry.example)
       card.append(example)

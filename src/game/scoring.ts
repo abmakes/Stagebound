@@ -137,45 +137,98 @@ function shortMoment(moment: string): string {
   return moment.replace(/^Body — |^Opening — |^Closing — /i, '').trim() || moment
 }
 
-function situationFor(slot: DeliverySlot, moment: string): string {
+/** True when the moment title is a game label, not a real speech situation. */
+function isMetaMoment(moment: string): boolean {
+  return /style choice|max difficulty|championship|spotlight|your style|river voice/i.test(
+    shortMoment(moment),
+  )
+}
+
+/**
+ * Short ESL situation clause — never paste raw moment titles into tips.
+ */
+function situationFor(slot: DeliverySlot, moment: string): string | null {
   const m = shortMoment(moment).toLowerCase()
+  if (isMetaMoment(moment)) return null
+
   switch (slot) {
     case 'emotion':
-      return `your face matches “${shortMoment(moment)}”`
+      if (/greet|hello|welcome|open/i.test(m)) return 'you greet the audience'
+      if (/close|thank|end/i.test(m)) return 'you close the speech'
+      if (/problem|harm|danger|serious|dirty/i.test(m)) return 'you talk about a serious problem'
+      if (/feel|care|hope|sad/i.test(m)) return 'you share a feeling'
+      return null
     case 'tone':
       if (/greet|hello|welcome|open/i.test(m)) return 'you greet the audience'
       if (/close|thank|end/i.test(m)) return 'you close the speech'
       if (/problem|harm|danger|serious/i.test(m)) return 'you talk about a serious problem'
-      return `you speak about ${shortMoment(moment).toLowerCase()}`
+      if (/dream|excited|job/i.test(m)) return 'you talk about your dream'
+      return null
     case 'gesture':
-      return `you deliver “${shortMoment(moment)}”`
+      if (/list|three|count|skills|actions|sights/i.test(m)) return 'you list your points'
+      if (/two|cause|effect|reasons|points/i.test(m)) return 'you show two ideas'
+      if (/feel|care|hope|why|promise/i.test(m)) return 'you share something personal'
+      if (/greet|welcome|invite|open/i.test(m)) return 'you welcome the audience'
+      if (/must|call|action|mime/i.test(m)) return 'you make a strong call to action'
+      return null
     case 'stance':
-      if (/important|must|call|boss|strong/i.test(m)) return 'you make an important point'
-      return `you speak about ${shortMoment(moment).toLowerCase()}`
+      if (/important|must|call|boss|strong|promise/i.test(m)) return 'you make an important point'
+      return null
     case 'volume':
-      return 'the whole room can hear you without strain'
+      return null // handled separately in contrastTip
     case 'pause':
-      return 'a big idea needs time to land'
+      return 'a big idea needs time'
     case 'eyes':
       return 'you connect with people in the room'
     default:
-      return `you speak about ${shortMoment(moment).toLowerCase()}`
+      return null
   }
 }
 
+function styleName(style: string | undefined): string | null {
+  if (style === 'comedy' || style === 'heart' || style === 'fire') return style
+  return null
+}
+
+/**
+ * One clear ESL tip for a wrong delivery pick.
+ * Style turns: "For comedy, try X — not Y."
+ * Other turns: "Try X instead of Y when …" (or without "when" if no good situation).
+ */
 function contrastTip(
   moment: string,
   slot: DeliverySlot,
   expectedVal: string | undefined,
   chosenVal: string | undefined,
+  style?: string,
 ): string | null {
   const want = tipLabel(slot, expectedVal)
   const got = tipLabel(slot, chosenVal)
   if (!want || !got) return null
-  if (slot === 'volume') {
-    return `Choose ${want} instead of ${got} so ${situationFor(slot, moment)}.`
+
+  const styled = styleName(style)
+  if (styled) {
+    return `For ${styled}, try ${want} — not ${got}.`
   }
-  return `Choose ${want} instead of ${got} when ${situationFor(slot, moment)}.`
+
+  if (slot === 'volume') {
+    if (expectedVal === 'soft') {
+      return `Try ${want} instead of ${got}. A softer voice can feel closer to the crowd.`
+    }
+    if (expectedVal === 'strong' || expectedVal === 'clear') {
+      return `Try ${want} instead of ${got} so the whole room can hear you.`
+    }
+    if (expectedVal === 'shout') {
+      return `Try ${want} instead of ${got} for this loud, urgent moment.`
+    }
+    return `Try ${want} instead of ${got}.`
+  }
+
+  const situation = situationFor(slot, moment)
+  if (situation) {
+    return `Try ${want} instead of ${got} when ${situation}.`
+  }
+  return `Try ${want} instead of ${got}.`
 }
 
 function lockedUnlockTip(slot: DeliverySlot): string {
@@ -315,7 +368,7 @@ export function scoreTurn(
       tips.push(lockedUnlockTip(key))
       return
     }
-    const tip = contrastTip(turn.moment, key, exp, got)
+    const tip = contrastTip(turn.moment, key, exp, got, sentence.style)
     if (tip) tips.push(tip)
   }
 
